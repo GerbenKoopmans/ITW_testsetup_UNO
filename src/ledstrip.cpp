@@ -4,23 +4,14 @@
 
 FASTLED_USING_NAMESPACE
 
-// FastLED "100-lines-of-code" demo reel, showing just a few
-// of the kinds of animation patterns you can quickly and easily
-// compose using FastLED.
-//
-// This example also shows one easy way to define multiple
-// animations patterns and have them automatically rotate.
-//
-// -Mark Kriegsman, December 2014
-
-#if defined(FASTLED_VERSION) && (FASTLED_VERSION < 3001000)
-#warning "Requires FastLED 3.1 or later; check github for latest code."
-#endif
-
 #define DATA_PIN    3
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS    60
+
+#define BRIGHTNESS          96
+#define FRAMES_PER_SECOND   40
+
 CRGB ledsRGB[NUM_LEDS];
 CHSV ledsHSV[NUM_LEDS];
 int trig[NUM_LEDS + 1];
@@ -28,65 +19,26 @@ int trig[NUM_LEDS + 1];
 EasingFunc<Ease::QuadInOut> e;
 float start;
 
-#define BRIGHTNESS          96
-#define FRAMES_PER_SECOND   40
-
-// constants won't change. They're used here to set pin numbers:
+// define pins
 const int buttonPin = 4;     // the number of the pushbutton pin
 const int ledPin =  13;      // the number of the LED pin
 
-// variables will change:
-int buttonState = 0;         // variable for reading the pushbutton status
+// define variable and flag to store the button state
+int buttonState = 0;         
 bool buttonFlag = false;
 
+// define animation variables
+uint8_t currentAnimation = 0; // Index number of which pattern is current
+uint8_t masterHue = 0; // rotating "base color" used by many of the patterns
 
-void setup() {
-  delay(3000); // 3 second delay for recovery
-
-  // tell FastLED about the LED strip configuration
-  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(ledsRGB, NUM_LEDS).setCorrection(TypicalLEDStrip);
-
-  // set master brightness control
-  FastLED.setBrightness(BRIGHTNESS);
-
-  Serial.begin(9600);
-  // initialize the LED pin as an output:
-  pinMode(ledPin, OUTPUT);
-  // initialize the pushbutton pin as an input:
-  pinMode(buttonPin, INPUT);
+void updateAnimationFrame(){
+    // TODO: add more animations
+    animationRainbowComets();
 }
 
-uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
-uint8_t gHue = 0; // rotating "base color" used by many of the patterns
-int pos = 0;
-
-void loop()
+void animationRainbowComets()
 {
-
-  // read the state of the pushbutton value:
-  buttonState = digitalRead(buttonPin);
-
-  // check if the pushbutton is pressed. If it is, the buttonState is HIGH:
-  if (buttonState == HIGH && buttonFlag == false) {
-    trig[0] = 1;
-    buttonFlag = true;
-    digitalWrite(ledPin, HIGH);
-  } else if(buttonState = LOW && buttonFlag == true){
-    buttonFlag = false;
-    digitalWrite(ledPin, LOW);
-  }
-
-  shiftToRight(trig, 61);
-  sinelon();
-  hsv2rgb();
-  FastLED.show();
-  FastLED.delay(1000 / FRAMES_PER_SECOND);
-}
-
-
-void sinelon()
-{
-
+  shiftToRight(trig, 61); //TODO: why 61?
   for (int i = 0; i < NUM_LEDS; i++) {
     if (trig[i] == 1) {
       ledsHSV[i].v = 200;
@@ -98,7 +50,9 @@ void sinelon()
   }
 }
 
+// shift all elements upto the n-th position 1 position to the right
 void shiftToRight(int a[], int n) {
+  // temporarely store the n-th element in array a
   int temp = a[n];
 
   for (int i = n; i > 0; i--) {
@@ -108,8 +62,52 @@ void shiftToRight(int a[], int n) {
   a[0] = 0;
 }
 
+// convert all HSV values to RGB values
 void hsv2rgb() {
   for (int i = 0; i < NUM_LEDS; i++) {
     ledsRGB[i] = ledsHSV[i];
   }
+}
+
+// -- MAIN LOOP --
+
+void setup() {
+  delay(3000); 
+
+  // tell FastLED about the LED strip configuration
+  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(ledsRGB, NUM_LEDS).setCorrection(TypicalLEDStrip);
+
+  // set master brightness control
+  FastLED.setBrightness(BRIGHTNESS);
+
+  // initialize serial communication at 9600 bits per second:
+  Serial.begin(9600);
+
+  // initialize the LED pin as an output:
+  pinMode(ledPin, OUTPUT);
+
+  // initialize the buttonpin as an input:
+  pinMode(buttonPin, INPUT);
+}
+
+void loop()
+{
+
+  // read the state of the pushbutton value:
+  buttonState = digitalRead(buttonPin);
+
+  // is buttonpin is high, buttonState is HIGH:
+  if (buttonState == HIGH && buttonFlag == false) {
+    trig[0] = 1;
+    buttonFlag = true;
+    digitalWrite(ledPin, HIGH);
+  } else if(buttonState = LOW && buttonFlag == true){
+    buttonFlag = false;
+    digitalWrite(ledPin, LOW);
+  }
+
+  updateAnimationFrame();
+  hsv2rgb();
+  FastLED.show();
+  FastLED.delay(1000 / FRAMES_PER_SECOND);
 }
