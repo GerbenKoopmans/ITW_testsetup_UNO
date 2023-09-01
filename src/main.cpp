@@ -2,32 +2,53 @@
 #include "Adafruit_NeoPixel.h"
 
 // INPUT
-#define WAHED_DRUM_STOOT_1 15
-#define WAHED_DRUM_STOOT_2 0
-#define WAHED_DRUM_STOOT_3 1
-#define WAHED_DRUM_STOOT_4 2
-#define WAHED_DRUM_STOOT_5 3
-#define NUM_PIEZOS 5
-int piezos[NUM_PIEZOS]{WAHED_DRUM_STOOT_1, WAHED_DRUM_STOOT_2, WAHED_DRUM_STOOT_3, WAHED_DRUM_STOOT_4, WAHED_DRUM_STOOT_5};
+#define WAHED_DRUM_STOOT_1 14
+#define WAHED_DRUM_STOOT_2 15
+#define WAHED_DRUM_STOOT_3 16
+// #define WAHED_DRUM_STOOT_4 14
+// #define WAHED_DRUM_STOOT_5 14
+#define NUM_PIEZOS 3
+// int piezos[NUM_PIEZOS]{WAHED_DRUM_STOOT_1, WAHED_DRUM_STOOT_2, WAHED_DRUM_STOOT_3, WAHED_DRUM_STOOT_4, WAHED_DRUM_STOOT_5};
+int piezos[NUM_PIEZOS]{WAHED_DRUM_STOOT_1, WAHED_DRUM_STOOT_2, WAHED_DRUM_STOOT_3};
 
 // OUTPUT
-#define LED_PIN_RING 14
+
+// LED ring
+#define LED_PIN_RING 11
 #define NUM_RINGS 4
 #define NUM_LEDS_RING 60
 #define BRIGHTNESS_RING 50
 const int NUM_LEDS = NUM_RINGS * NUM_LEDS_RING;
 Adafruit_NeoPixel ring(NUM_LEDS_RING, LED_PIN_RING, NEO_GRB + NEO_KHZ800); // LED ring // change to NUM_LEDS?
 
-// Piezo
+// LED beams
+#define LED_PIN_BEAM_1
+
+// LED beams
+#define NUM_BEAMS 5
+int led_beams[NUM_BEAMS]{};
+
+// Idle timer
+unsigned long idleTimer = 0;
+unsigned long idle_delay = 20000; // 5 minutes
+
+// Piezo timer
 unsigned long stootTimer = 0;
 unsigned long stoot_delay = 100;
 
-// LED ring
+// LED ring timer
 unsigned long ledTimer = 0;
 int ledPos = 0;
+int startPos = 0;
+int endPos = 0;
+boolean ringIsOn = false;
+boolean isIdle = false;
+
+// Colors
 int red = 255;
 int green = 255;
 int blue = 255;
+
 int rounds = 0;
 
 void fadeToBlack(int ledNum, byte fadeValue)
@@ -80,7 +101,9 @@ void idleRingAnimation(byte meteorSize, byte meteorTrail, boolean randomTrail, i
 
     if (rounds == 2)
     {
-        blue = 255;
+        red = random(0, 255);
+        green = random(0, 255);
+        blue = random(0, 255);
         rounds = 0;
     }
 
@@ -128,31 +151,47 @@ void readWahedStoot()
 
     int stoot_threshold = 100;
     int shutoff_delay = 150;
-    int startPos = 0;
-    int endPos = 0;
 
-    // if the sensor reading is greater than the threshold:
+    // For every sensor
     for (int i = 0; i < NUM_PIEZOS; i++)
     {
+        // Read input
         int sensorReading = analogRead(piezos[i]);
+        // if the sensor reading is greater than the threshold:
         if (sensorReading >= stoot_threshold)
         {
+            Serial.println(sensorReading);
             // Serial.printf("Piezo: %d, reading: %d\n", i, sensorReading);
 
+            // Reset idle timer, indicating action
+            idleTimer = millis();
+
+            // Play ring effect
             startPos = NUM_LEDS_RING * i;
             endPos = NUM_LEDS_RING * (i + 1);
-            stootRingAnimation(startPos, endPos, random(0, red), random(0, green), random(0, blue));
+            stootRingAnimation(startPos, endPos, random(0, 255), random(0, 255), random(0, 255));
+            ringIsOn = true;
 
-            // Reset shut-off timer
+            // Play led strip effect
+            if (isIdle == true)
+            {
+                // Reset switch
+                isIdle = false;
+
+                // Change animations
+            }
+
+            // Reset shut-off timer for led ring, starting new interval
             ledTimer = millis();
         }
     }
 
     // Timer for led shut-off
-    if (ledTimer + shutoff_delay < millis())
+    if (ringIsOn == true && ledTimer + shutoff_delay < millis())
     {
         // Reset timer
         ledTimer = millis();
+        ringIsOn = false;
         // Turn LEDs off
         stootRingAnimation(startPos, endPos, 0, 0, 0);
     }
@@ -174,6 +213,11 @@ void setup()
 void loop()
 {
     readWahedStoot();
-    // Idle animation
-    // idleRingAnimation(8, 30, false, 20, red, green, blue);
+    // If there was no action for a while
+    if (idleTimer + idle_delay < millis())
+    {
+        // Play idle animation
+        idleRingAnimation(8, 30, false, 20, red, green, blue);
+        isIdle = true;
+    }
 }
