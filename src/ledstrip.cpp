@@ -37,16 +37,26 @@ void updateAnimationFrame(){
 }
 
 void animationRainbowComets()
-{
-  shiftToRight(trig, 61); //TODO: why 61?
+{ shiftToRight(trig, 61); //TODO: why 61?
+
+  // for all leds
   for (int i = 0; i < NUM_LEDS; i++) {
+
+    // decrease the brightness of all leds
+    ledsHSV[i].v = max(ledsHSV[i].v - random(2)*20, 0);
+
+    // increase the saturation of all leds
+    ledsHSV[i].s = min(ledsHSV[i].s + 50, 255);
+
+    // check if trig[i] is the front of the comet
     if (trig[i] == 1) {
+
+      // set the values of the front of the comet
       ledsHSV[i].v = 200;
       ledsHSV[i].h += 40;
       ledsHSV[i].s = 0;
     }
-    ledsHSV[i].v = max(ledsHSV[i].v - random(2)*20, 0);
-    ledsHSV[i].s = min(ledsHSV[i].s + 50, 255);
+
   }
 }
 
