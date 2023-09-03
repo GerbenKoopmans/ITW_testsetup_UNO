@@ -3,55 +3,50 @@
 #include "FastLED.h"
 #include "Easing.h"
 
-// INPUT
-#define WAHED_DRUM_STOOT_1 14
-#define WAHED_DRUM_STOOT_2 15
-#define WAHED_DRUM_STOOT_3 16
-// #define WAHED_DRUM_STOOT_4 14
-// #define WAHED_DRUM_STOOT_5 14
-#define NUM_PIEZOS 3
-// int piezos[NUM_PIEZOS]{WAHED_DRUM_STOOT_1, WAHED_DRUM_STOOT_2, WAHED_DRUM_STOOT_3, WAHED_DRUM_STOOT_4, WAHED_DRUM_STOOT_5};
-int piezos[NUM_PIEZOS]{WAHED_DRUM_STOOT_1, WAHED_DRUM_STOOT_2, WAHED_DRUM_STOOT_3};
+// INPUT PINS
+// Define input pins
+#define PIEZO_PIN_1 14
+// TODO: add more pins
+// Create array for all piezo pins
+int piezos[]{PIEZO_PIN_1};
 
-// OUTPUT
-
+// OUTPUT PINS
 // LED ring
-#define LED_PIN_RING 11
-#define NUM_RINGS 4
+#define RING_PIN 11
 #define NUM_LEDS_RING 60
-#define BRIGHTNESS_RING 50
-const int NUM_LEDS = NUM_RINGS * NUM_LEDS_RING;
-Adafruit_NeoPixel ring(NUM_LEDS_RING, LED_PIN_RING, NEO_GRB + NEO_KHZ800); // LED ring // change to NUM_LEDS?
+Adafruit_NeoPixel ring(NUM_LEDS_RING, RING_PIN, NEO_GRB + NEO_KHZ800); // LED ring // change to NUM_LEDS?
 
-// LED beams
-#define LED_PIN_BEAM_1
-
+// LED beam
 #define DATA_PIN 10
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 #define NUM_LEDS 120
 
-#define BRIGHTNESS 40
+// LED options
+#define BRIGHTNESS_BEAM 40
+#define BRIGHTNESS_RING 50
 #define FRAMES_PER_SECOND 40
 
+// Define arrays that hold led strip colour.
 CRGB ledsRGB[NUM_LEDS];
 CHSV ledsHSV[NUM_LEDS];
 int trig[NUM_LEDS + 1];
 
+// Define easing variables
 EasingFunc<Ease::QuadInOut> e;
 float start;
 
-// define animation variables
+// Define animation variables
 uint8_t currentAnimation = 0; // Index number of which pattern is current
 uint8_t masterHue = 0;        // rotating "base color" used by many of the patterns
 
 // Idle timer
 unsigned long idleTimer = 0;
-unsigned long idle_delay = 20000; // 5 minutes
+unsigned long idleDelay = 20000; // 5 minutes
 
 // Piezo timer
-unsigned long stootTimer = 0;
-unsigned long stoot_delay = 100;
+unsigned long hitTimer = 0;
+unsigned long hitDelay = 100;
 
 // LED ring timer
 unsigned long ledTimer = 0;
@@ -99,7 +94,7 @@ void animationRainbowComets()
             ledsHSV[i].h += 40;
             ledsHSV[i].s = 0;
         }
-        ledsHSV[i].v = max(ledsHSV[i].v - random(2) * 20, 0);
+        ledsHSV[i].v = max(int(ledsHSV[i].v - random(2) * 20), 0);
         ledsHSV[i].s = min(ledsHSV[i].s + 50, 255);
     }
 }
@@ -201,18 +196,18 @@ void stootRingAnimation(int startPos, int endPos, int r, int g, int b)
 void readWahedStoot()
 {
     // Guard for timing
-    if (stootTimer > millis() - stoot_delay)
+    if (hitTimer > millis() - hitDelay)
     {
         return;
     }
 
-    stootTimer = millis(); // time is rewritten to current millis starting a new interval
+    hitTimer = millis(); // time is rewritten to current millis starting a new interval
 
     int stoot_threshold = 100;
     int shutoff_delay = 150;
 
     // For every sensor
-    for (int i = 0; i < NUM_PIEZOS; i++)
+    for (int i = 0; i < sizeof(piezos); i++)
     {
         // Read input
         int sensorReading = analogRead(piezos[i]);
@@ -273,7 +268,7 @@ void setup()
     FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(ledsRGB, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
     // set master brightness control
-    FastLED.setBrightness(BRIGHTNESS);
+    FastLED.setBrightness(BRIGHTNESS_BEAM);
 
     delay(1000);
 }
@@ -283,7 +278,7 @@ void loop()
     readWahedStoot();
 
     // If there was no action for a while
-    if (idleTimer + idle_delay < millis())
+    if (idleTimer + idleDelay < millis())
     {
         // Play idle animation
         idleRingAnimation(8, 30, false, 20, red, green, blue);
