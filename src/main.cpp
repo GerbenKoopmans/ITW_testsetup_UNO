@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include "Adafruit_NeoPixel.h"
+#include "FastLED.h"
+#include "Easing.h"
 
 // INPUT
 #define WAHED_DRUM_STOOT_1 14
@@ -24,9 +26,24 @@ Adafruit_NeoPixel ring(NUM_LEDS_RING, LED_PIN_RING, NEO_GRB + NEO_KHZ800); // LE
 // LED beams
 #define LED_PIN_BEAM_1
 
-// LED beams
-#define NUM_BEAMS 5
-int led_beams[NUM_BEAMS]{};
+#define DATA_PIN 10
+#define LED_TYPE WS2812B
+#define COLOR_ORDER GRB
+#define NUM_LEDS 120
+
+#define BRIGHTNESS 40
+#define FRAMES_PER_SECOND 40
+
+CRGB ledsRGB[NUM_LEDS];
+CHSV ledsHSV[NUM_LEDS];
+int trig[NUM_LEDS + 1];
+
+EasingFunc<Ease::QuadInOut> e;
+float start;
+
+// define animation variables
+uint8_t currentAnimation = 0; // Index number of which pattern is current
+uint8_t masterHue = 0;        // rotating "base color" used by many of the patterns
 
 // Idle timer
 unsigned long idleTimer = 0;
@@ -50,6 +67,48 @@ int green = 255;
 int blue = 255;
 
 int rounds = 0;
+
+// shift all elements upto the n-th position 1 position to the right
+void shiftToRight(int a[], int n)
+{
+    for (int i = n; i > 0; i--)
+    {
+        a[i] = a[i - 1];
+    }
+
+    a[0] = 0;
+}
+
+// convert all HSV values to RGB values
+void hsv2rgb()
+{
+    for (int i = 0; i < NUM_LEDS; i++)
+    {
+        ledsRGB[i] = ledsHSV[i];
+    }
+}
+
+void animationRainbowComets()
+{
+    shiftToRight(trig, 120); // TODO: why 61?
+    for (int i = 0; i < NUM_LEDS; i++)
+    {
+        if (trig[i] == 1)
+        {
+            ledsHSV[i].v = 200;
+            ledsHSV[i].h += 40;
+            ledsHSV[i].s = 0;
+        }
+        ledsHSV[i].v = max(ledsHSV[i].v - random(2) * 20, 0);
+        ledsHSV[i].s = min(ledsHSV[i].s + 50, 255);
+    }
+}
+
+void updateAnimationFrame()
+{
+    // TODO: add more animations
+    animationRainbowComets();
+}
 
 void fadeToBlack(int ledNum, byte fadeValue)
 {
@@ -169,10 +228,10 @@ void readWahedStoot()
             // Play ring effect
             startPos = NUM_LEDS_RING * i;
             endPos = NUM_LEDS_RING * (i + 1);
-            stootRingAnimation(startPos, endPos, random(0, 255), random(0, 255), random(0, 255));
+            stootRingAnimation(startPos, endPos, random(100, 101), random(100, 101), random(100, 101));
             ringIsOn = true;
 
-            // Play led strip effect
+            // Change led strip effect
             if (isIdle == true)
             {
                 // Reset switch
@@ -180,6 +239,9 @@ void readWahedStoot()
 
                 // Change animations
             }
+
+            // Play led strip effect
+            trig[0] = 1;
 
             // Reset shut-off timer for led ring, starting new interval
             ledTimer = millis();
@@ -207,12 +269,19 @@ void setup()
     ring.show();  // Turn OFF all pixels ASAP
     ring.setBrightness(BRIGHTNESS_RING);
 
+    // tell FastLED about the LED strip configuration
+    FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(ledsRGB, NUM_LEDS).setCorrection(TypicalLEDStrip);
+
+    // set master brightness control
+    FastLED.setBrightness(BRIGHTNESS);
+
     delay(1000);
 }
 
 void loop()
 {
     readWahedStoot();
+
     // If there was no action for a while
     if (idleTimer + idle_delay < millis())
     {
@@ -220,4 +289,9 @@ void loop()
         idleRingAnimation(8, 30, false, 20, red, green, blue);
         isIdle = true;
     }
+
+    updateAnimationFrame();
+    hsv2rgb();
+    FastLED.show();
+    FastLED.delay(1000 / FRAMES_PER_SECOND);
 }
