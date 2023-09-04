@@ -53,7 +53,7 @@ void hsv2rgb()
     }
 }
 
-void animationRainbowComets()
+void beamAnimationRainbowComets()
 {
     shiftToRight(trig, 120); // TODO: why 61?
     for (int i = 0; i < BEAM_BRIGHTNESS; i++)
@@ -69,10 +69,19 @@ void animationRainbowComets()
     }
 }
 
-void updateAnimationFrame()
+void drumAnimation()
+{
+}
+
+void updateBeamAnimation()
 {
     // TODO: add more animations
-    animationRainbowComets();
+    beamAnimationRainbowComets();
+}
+
+void updateDrumAnimation()
+{
+    drumAnimation();
 }
 
 // -- MAIN LOOP --
@@ -106,6 +115,9 @@ void loop()
     // is buttonpin is high, buttonState is HIGH:
     if (buttonState == HIGH && buttonFlag == false)
     {
+        // run drum hit animation
+        updateDrumAnimation();
+
         // Set first element of the trigger array to 1. This will trigger the animation.
         trig[0] = 1;
 
@@ -121,7 +133,7 @@ void loop()
         digitalWrite(ledPin, LOW);
     }
 
-    updateAnimationFrame();
+    updateBeamAnimation();
     hsv2rgb();
     FastLED.show();
     FastLED.delay(1000 / FRAMES_PER_SECOND);
