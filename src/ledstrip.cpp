@@ -67,9 +67,14 @@ void shiftToRight(int a[], int n)
 // convert all HSV values to RGB values
 void hsv2rgb()
 {
-    for (int i = 0; i < BEAM_BRIGHTNESS; i++)
+    for (int i = 0; i < BEAM_NUM_LEDS; i++)
     {
         beamLedsRGB[i] = beamLedsHSV[i];
+    }
+
+    for (int i = 0; i < DRUM_NUM_LEDS; i++)
+    {
+        drumLedsRGB[i] = drumLedsHSV[i];
     }
 }
 
@@ -129,20 +134,24 @@ void setup()
 {
     delay(3000);
 
-    // tell FastLED about the LED strip configuration
+    // tell FastLED about the LED beam configuration
     FastLED.addLeds<BEAM_LED_TYPE, BEAM_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, BEAM_NUM_LEDS).setCorrection(TypicalLEDStrip);
-
     // set master BEAM_BRIGHTNESS control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
 
-    // initialize serial communication at 9600 bits per second:
-    Serial.begin(9600);
+    // tell FastLED about the LED DRUM configuration
+    FastLED.addLeds<DRUM_LED_TYPE, DRUM_DATA_PIN, DRUM_COLOR_ORDER>(drumLedsRGB, DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    // set master DRUM_BRIGHTNESS control
+    FastLED.setBrightness(DRUM_BRIGHTNESS);
 
-    // initialize the LED pin as an output:
+    // initialize the onboard LED pin as an output:
     pinMode(ledPin, OUTPUT);
 
     // initialize the buttonpin as an input:
     pinMode(buttonPin, INPUT);
+
+    // initialize serial communication at 9600 bits per second:
+    Serial.begin(9600);
 
     // set idleTimer to current time
     idleTimer = millis();
