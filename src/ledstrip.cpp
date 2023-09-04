@@ -10,6 +10,15 @@ FASTLED_USING_NAMESPACE
 #define BEAM_COLOR_ORDER GRB
 #define BEAM_NUM_LEDS 120
 #define BEAM_BRIGHTNESS 40
+
+// LED drum options
+#define DRUM_DATA_PIN 10
+#define DRUM_LED_TYPE WS2812B
+#define DRUM_COLOR_ORDER GRB
+#define DRUM_NUM_LEDS 120
+#define DRUM_BRIGHTNESS 40
+
+// LED options
 #define FRAMES_PER_SECOND 40
 
 // Define arrays that hold led strip colour.
@@ -55,7 +64,7 @@ void hsv2rgb()
 
 void beamAnimationRainbowComets()
 {
-    shiftToRight(trig, 120); // TODO: why 61?
+    shiftToRight(trig, 120);
     for (int i = 0; i < BEAM_BRIGHTNESS; i++)
     {
         if (trig[i] == 1)
