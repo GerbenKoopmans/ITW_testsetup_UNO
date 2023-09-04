@@ -12,18 +12,24 @@ FASTLED_USING_NAMESPACE
 #define BEAM_BRIGHTNESS 40
 
 // LED drum options
-#define DRUM_DATA_PIN 10
+#define DRUM_DATA_PIN 11
 #define DRUM_LED_TYPE WS2812B
 #define DRUM_COLOR_ORDER GRB
-#define DRUM_NUM_LEDS 120
+#define DRUM_NUM_LEDS 60
 #define DRUM_BRIGHTNESS 40
 
 // LED options
 #define FRAMES_PER_SECOND 40
 
-// Define arrays that hold led strip colour.
-CRGB ledsRGB[BEAM_NUM_LEDS];
-CHSV ledsHSV[BEAM_NUM_LEDS];
+// Define arrays that hold led beam colour.
+CRGB beamLedsRGB[BEAM_NUM_LEDS];
+CHSV beamLedsHSV[BEAM_NUM_LEDS];
+
+// Define array that holds led drum colour.
+CRGB drumLedsRGB[DRUM_NUM_LEDS];
+CHSV drumLedsHSV[DRUM_NUM_LEDS];
+
+// Define array that holds trigger values for drum hit.
 int trig[BEAM_NUM_LEDS + 1];
 
 // Define easing function
@@ -58,28 +64,47 @@ void hsv2rgb()
 {
     for (int i = 0; i < BEAM_BRIGHTNESS; i++)
     {
-        ledsRGB[i] = ledsHSV[i];
+        beamLedsRGB[i] = beamLedsHSV[i];
     }
 }
 
 void beamAnimationRainbowComets()
 {
     shiftToRight(trig, 120);
-    for (int i = 0; i < BEAM_BRIGHTNESS; i++)
+    for (int i = 0; i < BEAM_NUM_LEDS; i++)
     {
         if (trig[i] == 1)
         {
-            ledsHSV[i].v = 200;
-            ledsHSV[i].h += 40;
-            ledsHSV[i].s = 0;
+            beamLedsHSV[i].v = 200;
+            beamLedsHSV[i].h += 40;
+            beamLedsHSV[i].s = 0;
         }
-        ledsHSV[i].v = max(int(ledsHSV[i].v - random(2) * 20), 0);
-        ledsHSV[i].s = min(ledsHSV[i].s + 50, 255);
+        beamLedsHSV[i].v = max(int(beamLedsHSV[i].v - random(2) * 20), 0);
+        beamLedsHSV[i].s = min(beamLedsHSV[i].s + 50, 255);
     }
 }
 
 void drumAnimation()
 {
+    // if drum hit, fire up all leds
+    if (trig[0] == 1)
+    {
+        for (int i = 0; i < DRUM_NUM_LEDS; i++)
+        {
+            drumLedsHSV[i].v = 200;
+            drumLedsHSV[i].h += 40;
+            drumLedsHSV[i].s = 0;
+        }
+    }
+
+    // decrease all leds brightness
+    for (int i = 0; i < DRUM_NUM_LEDS; i++)
+    {
+        int release = 40;
+
+        drumLedsHSV[i].v = max(int(drumLedsHSV[i].v - release), 0);
+        drumLedsHSV[i].h = min(drumLedsHSV[i].s + 50, 255);
+    }
 }
 
 void updateBeamAnimation()
@@ -100,7 +125,7 @@ void setup()
     delay(3000);
 
     // tell FastLED about the LED strip configuration
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_DATA_PIN, BEAM_COLOR_ORDER>(ledsRGB, BEAM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, BEAM_NUM_LEDS).setCorrection(TypicalLEDStrip);
 
     // set master BEAM_BRIGHTNESS control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
@@ -124,9 +149,6 @@ void loop()
     // is buttonpin is high, buttonState is HIGH:
     if (buttonState == HIGH && buttonFlag == false)
     {
-        // run drum hit animation
-        updateDrumAnimation();
-
         // Set first element of the trigger array to 1. This will trigger the animation.
         trig[0] = 1;
 
@@ -143,7 +165,10 @@ void loop()
     }
 
     updateBeamAnimation();
+    updateDrumAnimation();
+
     hsv2rgb();
+
     FastLED.show();
     FastLED.delay(1000 / FRAMES_PER_SECOND);
 }
