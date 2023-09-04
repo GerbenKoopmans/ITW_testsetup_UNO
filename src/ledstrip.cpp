@@ -21,6 +21,10 @@ FASTLED_USING_NAMESPACE
 // LED options
 #define FRAMES_PER_SECOND 40
 
+// Define pins
+#define TRIGGER_PIN 14
+#define ONBOARD_LED_PIN 13
+
 // Define arrays that hold led beam colour.
 CRGB beamLedsRGB[BEAM_NUM_LEDS];
 CHSV beamLedsHSV[BEAM_NUM_LEDS];
@@ -36,13 +40,11 @@ int trig[BEAM_NUM_LEDS + 1];
 EasingFunc<Ease::QuadInOut> e;
 float start;
 
-// Define pins
-const int buttonPin = 14; // the number of the pushbutton pin
-const int ledPin = 13;    // the number of the onboard LED
-
 // Define variable and flag to store the button state
-int buttonState = 0;
-bool buttonFlag = false;
+int triggerValue = 0;
+bool triggerFlag = false;
+int triggerThreshold = 100;
+int triggerHysterisis = 50;
 
 // Define animation variables
 uint8_t currentAnimation = 0; // Index number of which pattern is current
@@ -145,10 +147,10 @@ void setup()
     FastLED.setBrightness(DRUM_BRIGHTNESS);
 
     // initialize the onboard LED pin as an output:
-    pinMode(ledPin, OUTPUT);
+    pinMode(ONBOARD_LED_PIN, OUTPUT);
 
     // initialize the buttonpin as an input:
-    pinMode(buttonPin, INPUT);
+    pinMode(TRIGGER_PIN, INPUT);
 
     // initialize serial communication at 9600 bits per second:
     Serial.begin(9600);
@@ -176,10 +178,10 @@ void loop()
 {
 
     // read the state of the pushbutton value:
-    buttonState = digitalRead(buttonPin);
+    triggerValue = digitalRead(TRIGGER_PIN);
 
-    // is buttonpin is high, buttonState is HIGH:
-    if (buttonState == HIGH && buttonFlag == false)
+    // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
+    if (triggerValue > triggerThreshold && triggerFlag == false)
     {
         // reset idle timer
         resetIdleTimer();
@@ -188,15 +190,16 @@ void loop()
         trig[0] = 1;
 
         // Set the flag to true, so drum can only retrigger after being released.
-        buttonFlag = true;
+        triggerFlag = true;
 
         // turn on onboard led
-        digitalWrite(ledPin, HIGH);
+        digitalWrite(ONBOARD_LED_PIN, HIGH);
     }
-    else if (buttonState = LOW && buttonFlag == true)
+    // check if triggerValue has dipped below triggerHysterisis and triggerFlag is true.
+    else if (triggerValue < triggerHysterisis && triggerFlag == true)
     {
-        buttonFlag = false;
-        digitalWrite(ledPin, LOW);
+        triggerFlag = false;
+        digitalWrite(ONBOARD_LED_PIN, LOW);
     }
 
     // if idle timer is greater than idleThreshold, set idleFlag to true
@@ -207,6 +210,7 @@ void loop()
             idleFlag = true;
         }
 
+        // when idle, call idleGovernor every animation frame to trigger random animations
         idleGovernor();
     }
 
