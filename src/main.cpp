@@ -1,72 +1,59 @@
 #include <Arduino.h>
-#include "Adafruit_NeoPixel.h"
 #include "FastLED.h"
 #include "Easing.h"
 
-// INPUT
-#define WAHED_DRUM_STOOT_1 14
-#define WAHED_DRUM_STOOT_2 15
-#define WAHED_DRUM_STOOT_3 16
-// #define WAHED_DRUM_STOOT_4 14
-// #define WAHED_DRUM_STOOT_5 14
-#define NUM_PIEZOS 3
-// int piezos[NUM_PIEZOS]{WAHED_DRUM_STOOT_1, WAHED_DRUM_STOOT_2, WAHED_DRUM_STOOT_3, WAHED_DRUM_STOOT_4, WAHED_DRUM_STOOT_5};
-int piezos[NUM_PIEZOS]{WAHED_DRUM_STOOT_1, WAHED_DRUM_STOOT_2, WAHED_DRUM_STOOT_3};
+FASTLED_USING_NAMESPACE
 
-// OUTPUT
+// LED beam options
+#define BEAM_DATA_PIN 10
+#define BEAM_LED_TYPE WS2812B
+#define BEAM_COLOR_ORDER GRB
+#define BEAM_NUM_LEDS 120
+#define BEAM_BRIGHTNESS 40
 
-// LED ring
-#define LED_PIN_RING 11
-#define NUM_RINGS 4
-#define NUM_LEDS_RING 60
-#define BRIGHTNESS_RING 50
-const int NUM_LEDS = NUM_RINGS * NUM_LEDS_RING;
-Adafruit_NeoPixel ring(NUM_LEDS_RING, LED_PIN_RING, NEO_GRB + NEO_KHZ800); // LED ring // change to NUM_LEDS?
+// LED drum options
+#define DRUM_DATA_PIN 11
+#define DRUM_LED_TYPE WS2812B
+#define DRUM_COLOR_ORDER GRB
+#define DRUM_NUM_LEDS 60
+#define DRUM_BRIGHTNESS 40
 
-// LED beams
-#define LED_PIN_BEAM_1
-
-#define DATA_PIN 10
-#define LED_TYPE WS2812B
-#define COLOR_ORDER GRB
-#define NUM_LEDS 120
-
-#define BRIGHTNESS 40
+// LED options
 #define FRAMES_PER_SECOND 40
 
-CRGB ledsRGB[NUM_LEDS];
-CHSV ledsHSV[NUM_LEDS];
-int trig[NUM_LEDS + 1];
+// Define pins
+#define TRIGGER_PIN 14
+#define ONBOARD_LED_PIN 13
 
+// Define arrays that hold led beam colour.
+CRGB beamLedsRGB[BEAM_NUM_LEDS];
+CHSV beamLedsHSV[BEAM_NUM_LEDS];
+
+// Define array that holds led drum colour.
+CRGB drumLedsRGB[DRUM_NUM_LEDS];
+CHSV drumLedsHSV[DRUM_NUM_LEDS];
+
+// Define array that holds trigger values for drum hit.
+int trig[BEAM_NUM_LEDS + 1];
+
+// Define easing function
 EasingFunc<Ease::QuadInOut> e;
 float start;
 
-// define animation variables
+// Define variable and flag to store the button state
+int triggerValue = 0;
+bool triggerFlag = false;
+int triggerThreshold = 100;
+int triggerHysterisis = 50;
+
+// Define animation variables
 uint8_t currentAnimation = 0; // Index number of which pattern is current
 uint8_t masterHue = 0;        // rotating "base color" used by many of the patterns
 
-// Idle timer
-unsigned long idleTimer = 0;
-unsigned long idle_delay = 20000; // 5 minutes
-
-// Piezo timer
-unsigned long stootTimer = 0;
-unsigned long stoot_delay = 100;
-
-// LED ring timer
-unsigned long ledTimer = 0;
-int ledPos = 0;
-int startPos = 0;
-int endPos = 0;
-boolean ringIsOn = false;
-boolean isIdle = false;
-
-// Colors
-int red = 255;
-int green = 255;
-int blue = 255;
-
-int rounds = 0;
+// Define idle timer
+int idleTimer = 0;
+int idleThreshold = 10000;
+boolean idleFlag = false;
 
 // shift all elements upto the n-th position 1 position to the right
 void shiftToRight(int a[], int n)
@@ -82,216 +69,156 @@ void shiftToRight(int a[], int n)
 // convert all HSV values to RGB values
 void hsv2rgb()
 {
-    for (int i = 0; i < NUM_LEDS; i++)
+    for (int i = 0; i < BEAM_NUM_LEDS; i++)
     {
-        ledsRGB[i] = ledsHSV[i];
+        beamLedsRGB[i] = beamLedsHSV[i];
+    }
+
+    for (int i = 0; i < DRUM_NUM_LEDS; i++)
+    {
+        drumLedsRGB[i] = drumLedsHSV[i];
     }
 }
 
-void animationRainbowComets()
+void beamAnimationRainbowComets()
 {
-    shiftToRight(trig, 120); // TODO: why 61?
-    for (int i = 0; i < NUM_LEDS; i++)
+    shiftToRight(trig, 120);
+    for (int i = 0; i < BEAM_NUM_LEDS; i++)
     {
         if (trig[i] == 1)
         {
-            ledsHSV[i].v = 200;
-            ledsHSV[i].h += 40;
-            ledsHSV[i].s = 0;
+            beamLedsHSV[i].v = 200;
+            beamLedsHSV[i].h += 40;
+            beamLedsHSV[i].s = 0;
         }
-        ledsHSV[i].v = max(ledsHSV[i].v - random(2) * 20, 0);
-        ledsHSV[i].s = min(ledsHSV[i].s + 50, 255);
+        beamLedsHSV[i].v = max(int(beamLedsHSV[i].v - random(2) * 20), 0);
+        beamLedsHSV[i].s = min(beamLedsHSV[i].s + 50, 255);
     }
 }
 
-void updateAnimationFrame()
+void drumAnimation()
+{
+    // if drum hit, fire up all leds
+    if (trig[0] == 1)
+    {
+        for (int i = 0; i < DRUM_NUM_LEDS; i++)
+        {
+            drumLedsHSV[i].v = 200;
+            drumLedsHSV[i].h += 40;
+            drumLedsHSV[i].s = 0;
+        }
+    }
+
+    // decrease all leds brightness
+    for (int i = 0; i < DRUM_NUM_LEDS; i++)
+    {
+        int release = 40;
+
+        drumLedsHSV[i].v = max(int(drumLedsHSV[i].v - release), 0);
+        drumLedsHSV[i].h = min(drumLedsHSV[i].s + 50, 255);
+    }
+}
+
+void updateBeamAnimation()
 {
     // TODO: add more animations
-    animationRainbowComets();
+    beamAnimationRainbowComets();
 }
 
-void fadeToBlack(int ledNum, byte fadeValue)
+void updateDrumAnimation()
 {
-    uint32_t oldColor;
-    uint8_t r, g, b;
-
-    oldColor = ring.getPixelColor(ledNum);
-
-    r = (oldColor & 0x00ff0000UL) >> 16;
-    g = (oldColor & 0x0000ff00UL) >> 8;
-    b = (oldColor & 0x000000ffUL);
-
-    r = (r <= 10) ? 0 : (int)r - (r * fadeValue / 256);
-    g = (g <= 10) ? 0 : (int)g - (g * fadeValue / 256);
-    b = (b <= 10) ? 0 : (int)b - (b * fadeValue / 256);
-
-    ring.setPixelColor(ledNum, r, g, b);
+    drumAnimation();
 }
 
-void idleRingAnimation(byte meteorSize, byte meteorTrail, boolean randomTrail, int speedDelay, int r, int g, int b)
-{
-    // meteorSize in amount of LEDs
-    // meteorTrail determines how fast the trail dissappears (higher is faster)
-    // randomTrail enables or disables random trail sharts
-    // speedDelay is the delay (sync to BPM)
-    // r g b are the color values
-
-    // Guard for timing
-    if (ledTimer > millis() - speedDelay)
-    {
-        return;
-    }
-
-    ledTimer = millis(); // time is rewritten to current millis starting a new interval
-
-    // Position is updated
-    if (ledPos < NUM_LEDS_RING)
-    {
-        ledPos++;
-    }
-    else
-    {
-        ledPos = 0;
-        red = 0;
-        green = 0;
-        blue = 0;
-        rounds++;
-    }
-
-    if (rounds == 2)
-    {
-        red = random(0, 255);
-        green = random(0, 255);
-        blue = random(0, 255);
-        rounds = 0;
-    }
-
-    // Fade LEDs
-    for (int j = 0; j <= NUM_LEDS_RING; j++)
-    {
-        if ((!randomTrail) || (random(10) > 5))
-        {
-            fadeToBlack(j, meteorTrail);
-        }
-    }
-    // Draw meteor
-    for (int j = 0; j < meteorSize; j++)
-    {
-        if (ledPos >= j)
-        {
-            ring.setPixelColor(ledPos - j, r, g, b);
-        }
-    }
-    // Show LEDs
-    ring.show();
-}
-
-void stootRingAnimation(int startPos, int endPos, int r, int g, int b)
-{
-    // For every LED
-    for (int i = startPos; i < endPos; i++)
-    {
-        ring.setPixelColor(i, r, g, b);
-    }
-
-    // Show LEDs
-    ring.show();
-}
-
-void readWahedStoot()
-{
-    // Guard for timing
-    if (stootTimer > millis() - stoot_delay)
-    {
-        return;
-    }
-
-    stootTimer = millis(); // time is rewritten to current millis starting a new interval
-
-    int stoot_threshold = 100;
-    int shutoff_delay = 150;
-
-    // For every sensor
-    for (int i = 0; i < NUM_PIEZOS; i++)
-    {
-        // Read input
-        int sensorReading = analogRead(piezos[i]);
-        // if the sensor reading is greater than the threshold:
-        if (sensorReading >= stoot_threshold)
-        {
-            Serial.println(sensorReading);
-            // Serial.printf("Piezo: %d, reading: %d\n", i, sensorReading);
-
-            // Reset idle timer, indicating action
-            idleTimer = millis();
-
-            // Play ring effect
-            startPos = NUM_LEDS_RING * i;
-            endPos = NUM_LEDS_RING * (i + 1);
-            stootRingAnimation(startPos, endPos, random(100, 101), random(100, 101), random(100, 101));
-            ringIsOn = true;
-
-            // Change led strip effect
-            if (isIdle == true)
-            {
-                // Reset switch
-                isIdle = false;
-
-                // Change animations
-            }
-
-            // Play led strip effect
-            trig[0] = 1;
-
-            // Reset shut-off timer for led ring, starting new interval
-            ledTimer = millis();
-        }
-    }
-
-    // Timer for led shut-off
-    if (ringIsOn == true && ledTimer + shutoff_delay < millis())
-    {
-        // Reset timer
-        ledTimer = millis();
-        ringIsOn = false;
-        // Turn LEDs off
-        stootRingAnimation(startPos, endPos, 0, 0, 0);
-    }
-}
+// -- MAIN LOOP --
 
 void setup()
 {
-    // Initialize serial communication at 9600 bits per second:
+    delay(3000);
+
+    // tell FastLED about the LED beam configuration
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, BEAM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    // set master BEAM_BRIGHTNESS control
+    FastLED.setBrightness(BEAM_BRIGHTNESS);
+
+    // tell FastLED about the LED DRUM configuration
+    FastLED.addLeds<DRUM_LED_TYPE, DRUM_DATA_PIN, DRUM_COLOR_ORDER>(drumLedsRGB, DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    // set master DRUM_BRIGHTNESS control
+    FastLED.setBrightness(DRUM_BRIGHTNESS);
+
+    // initialize the onboard LED pin as an output:
+    pinMode(ONBOARD_LED_PIN, OUTPUT);
+
+    // initialize the buttonpin as an input:
+    pinMode(TRIGGER_PIN, INPUT);
+
+    // initialize serial communication at 9600 bits per second:
     Serial.begin(9600);
 
-    // Initialize LED ring
-    ring.begin(); // INITIALIZE NeoPixel strip object
-    ring.show();  // Turn OFF all pixels ASAP
-    ring.setBrightness(BRIGHTNESS_RING);
+    // set idleTimer to current time
+    idleTimer = millis();
+}
 
-    // tell FastLED about the LED strip configuration
-    FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(ledsRGB, NUM_LEDS).setCorrection(TypicalLEDStrip);
+void resetIdleTimer()
+{
+    idleTimer = millis();
+    idleFlag = false;
+}
 
-    // set master brightness control
-    FastLED.setBrightness(BRIGHTNESS);
-
-    delay(1000);
+// have a random chance of triggering the animation
+void idleGovernor()
+{
+    if (random(100) > 90)
+    {
+        trig[0] = 1;
+    }
 }
 
 void loop()
 {
-    readWahedStoot();
 
-    // If there was no action for a while
-    if (idleTimer + idle_delay < millis())
+    // read the state of the pushbutton value:
+    triggerValue = digitalRead(TRIGGER_PIN);
+
+    // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
+    if (triggerValue > triggerThreshold && triggerFlag == false)
     {
-        // Play idle animation
-        idleRingAnimation(8, 30, false, 20, red, green, blue);
-        isIdle = true;
+        // reset idle timer
+        resetIdleTimer();
+
+        // Set first element of the trigger array to 1. This will trigger the animation.
+        trig[0] = 1;
+
+        // Set the flag to true, so drum can only retrigger after being released.
+        triggerFlag = true;
+
+        // turn on onboard led
+        digitalWrite(ONBOARD_LED_PIN, HIGH);
+    }
+    // check if triggerValue has dipped below triggerHysterisis and triggerFlag is true.
+    else if (triggerValue < triggerHysterisis && triggerFlag == true)
+    {
+        triggerFlag = false;
+        digitalWrite(ONBOARD_LED_PIN, LOW);
     }
 
-    updateAnimationFrame();
+    // if idle timer is greater than idleThreshold, set idleFlag to true
+    if (millis() - idleTimer > idleThreshold)
+    {
+        if (idleFlag == false)
+        {
+            idleFlag = true;
+        }
+
+        // when idle, call idleGovernor every animation frame to trigger random animations
+        idleGovernor();
+    }
+
+    updateBeamAnimation();
+    updateDrumAnimation();
+
     hsv2rgb();
+
     FastLED.show();
     FastLED.delay(1000 / FRAMES_PER_SECOND);
 }
