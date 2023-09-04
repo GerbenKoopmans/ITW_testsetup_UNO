@@ -154,6 +154,15 @@ void resetIdleTimer()
     idleFlag = false;
 }
 
+// have a random chance of triggering the animation
+void idleGovernor()
+{
+    if (random(100) > 90)
+    {
+        trig[0] = 1;
+    }
+}
+
 void loop()
 {
 
@@ -182,9 +191,14 @@ void loop()
     }
 
     // if idle timer is greater than idleThreshold, set idleFlag to true
-    if (millis() - idleTimer > idleThreshold && idleFlag == false)
+    if (millis() - idleTimer > idleThreshold)
     {
-        idleFlag = true;
+        if (idleFlag == false)
+        {
+            idleFlag = true;
+        }
+
+        idleGovernor();
     }
 
     updateBeamAnimation();
