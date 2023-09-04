@@ -36,17 +36,22 @@ int trig[BEAM_NUM_LEDS + 1];
 EasingFunc<Ease::QuadInOut> e;
 float start;
 
-// define pins
+// Define pins
 const int buttonPin = 14; // the number of the pushbutton pin
 const int ledPin = 13;    // the number of the onboard LED
 
-// define variable and flag to store the button state
+// Define variable and flag to store the button state
 int buttonState = 0;
 bool buttonFlag = false;
 
-// define animation variables
+// Define animation variables
 uint8_t currentAnimation = 0; // Index number of which pattern is current
 uint8_t masterHue = 0;        // rotating "base color" used by many of the patterns
+
+// Define idle timer
+int idleTimer = 0;
+int idleThreshold = 10000;
+boolean idleFlag = false;
 
 // shift all elements upto the n-th position 1 position to the right
 void shiftToRight(int a[], int n)
@@ -138,6 +143,15 @@ void setup()
 
     // initialize the buttonpin as an input:
     pinMode(buttonPin, INPUT);
+
+    // set idleTimer to current time
+    idleTimer = millis();
+}
+
+void resetIdleTimer()
+{
+    idleTimer = millis();
+    idleFlag = false;
 }
 
 void loop()
@@ -149,6 +163,9 @@ void loop()
     // is buttonpin is high, buttonState is HIGH:
     if (buttonState == HIGH && buttonFlag == false)
     {
+        // reset idle timer
+        resetIdleTimer();
+
         // Set first element of the trigger array to 1. This will trigger the animation.
         trig[0] = 1;
 
@@ -162,6 +179,12 @@ void loop()
     {
         buttonFlag = false;
         digitalWrite(ledPin, LOW);
+    }
+
+    // if idle timer is greater than idleThreshold, set idleFlag to true
+    if (millis() - idleTimer > idleThreshold && idleFlag == false)
+    {
+        idleFlag = true;
     }
 
     updateBeamAnimation();
