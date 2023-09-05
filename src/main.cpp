@@ -51,14 +51,21 @@ uint8_t currentAnimation = 0; // Index number of which pattern is current
 uint8_t masterHue = 0;        // rotating "base color" used by many of the patterns
 
 // Define idle timer
-int idleTimer = 0;
-int idleThreshold = 10000;
-boolean idleFlag = false;
+unsigned long idleTimer = 0;
+unsigned long idleThreshold = 10000;
 
 // Led ring idle animation
 int ledPosDrum = 0;
 int idleHue = 100;
+int idleValue = 200;
 boolean isFullyColored = true;
+
+uint8_t status;
+enum status_types_t
+{
+    ACTIVE,
+    IDLE
+};
 
 // shift all elements upto the n-th position 1 position to the right
 void shiftToRight(int a[], int n)
@@ -127,7 +134,7 @@ void drumAnimation()
 void drumIdleAnimation()
 {
     // Give led a random color
-    drumLedsHSV[ledPosDrum].v = 200;
+    drumLedsHSV[ledPosDrum].v = idleValue;
     drumLedsHSV[ledPosDrum].h = idleHue;
     drumLedsHSV[ledPosDrum].s = 0;
 
@@ -140,16 +147,19 @@ void drumIdleAnimation()
     else if (isFullyColored)
     {
         ledPosDrum = 0;
-        idleHue = 0;
+        idleValue = 0;
         isFullyColored = false;
     }
     // Turn LEDs on
     else if (!isFullyColored)
     {
         ledPosDrum = 0;
+        idleValue = 200;
         idleHue = random(0, 255);
         isFullyColored = true;
     }
+
+    Serial.println(ledPosDrum);
 }
 
 void updateBeamAnimation()
@@ -161,6 +171,59 @@ void updateBeamAnimation()
 void updateDrumAnimation()
 {
     drumAnimation();
+}
+
+void checkForIdle()
+{
+    // if idle timer is greater than idleThreshold, set status to IDLE
+    if (millis() - idleTimer > idleThreshold)
+    {
+        status = IDLE;
+    }
+}
+
+void resetIdleTimer()
+{
+    idleTimer = millis();
+    status = ACTIVE;
+    Serial.println(status);
+}
+
+// have a random chance of triggering the animation
+void idleGovernor()
+{
+    if (random(100) > 90)
+    {
+        trig[0] = 1;
+    }
+}
+
+void readTrigger()
+{
+    // read the state of the pushbutton value:
+    triggerValue = analogRead(TRIGGER_PIN);
+
+    // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
+    if (triggerValue > triggerThreshold && triggerFlag == false)
+    {
+        // reset idle timer
+        resetIdleTimer();
+
+        // Set first element of the trigger array to 1. This will trigger the animation.
+        trig[0] = 1;
+
+        // Set the flag to true, so drum can only retrigger after being released.
+        triggerFlag = true;
+
+        // turn on onboard led
+        digitalWrite(ONBOARD_LED_PIN, HIGH);
+    }
+    // check if triggerValue has dipped below triggerHysterisis and triggerFlag is true.
+    else if (triggerValue < triggerHysterisis && triggerFlag == true)
+    {
+        triggerFlag = false;
+        digitalWrite(ONBOARD_LED_PIN, LOW);
+    }
 }
 
 // -- MAIN LOOP --
@@ -192,64 +255,22 @@ void setup()
     idleTimer = millis();
 }
 
-void resetIdleTimer()
-{
-    idleTimer = millis();
-    idleFlag = false;
-}
-
-// have a random chance of triggering the animation
-void idleGovernor()
-{
-    if (random(100) > 90)
-    {
-        trig[0] = 1;
-    }
-}
-
 void loop()
 {
+    readTrigger();
 
-    // read the state of the pushbutton value:
-    triggerValue = digitalRead(TRIGGER_PIN);
-
-    // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
-    if (triggerValue > triggerThreshold && triggerFlag == false)
+    switch (status)
     {
-        // reset idle timer
-        resetIdleTimer();
-
-        // Set first element of the trigger array to 1. This will trigger the animation.
-        trig[0] = 1;
-
-        // Set the flag to true, so drum can only retrigger after being released.
-        triggerFlag = true;
-
-        // turn on onboard led
-        digitalWrite(ONBOARD_LED_PIN, HIGH);
-    }
-    // check if triggerValue has dipped below triggerHysterisis and triggerFlag is true.
-    else if (triggerValue < triggerHysterisis && triggerFlag == true)
-    {
-        triggerFlag = false;
-        digitalWrite(ONBOARD_LED_PIN, LOW);
-    }
-
-    // if idle timer is greater than idleThreshold, set idleFlag to true
-    if (millis() - idleTimer > idleThreshold)
-    {
-        if (idleFlag == false)
-        {
-            idleFlag = true;
-        }
-
-        // when idle, call idleGovernor every animation frame to trigger random animations
-        // idleGovernor();
+    case ACTIVE:
+        updateBeamAnimation();
+        updateDrumAnimation();
+        checkForIdle();
+        break;
+    case IDLE:
+        idleGovernor();
         drumIdleAnimation();
+        break;
     }
-
-    updateBeamAnimation();
-    updateDrumAnimation();
 
     hsv2rgb();
 
