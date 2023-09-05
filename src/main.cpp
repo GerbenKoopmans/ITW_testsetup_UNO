@@ -43,8 +43,6 @@ float start;
 // Define variable and flag to store the button state
 int triggerValue = 0;
 bool triggerFlag = false;
-int triggerThreshold = 100;
-int triggerHysterisis = 50;
 
 // Define animation variables
 uint8_t currentAnimation = 0; // Index number of which pattern is current
@@ -92,6 +90,19 @@ void hsv2rgb()
     }
 }
 
+int brightness(int trigger) // TODO: Make sure this changes the brightness accordingly
+{
+    if (trigger < 300)
+    {
+        return 50;
+    }
+    else if (trigger >= 300 && trigger < 700)
+    {
+        return 125;
+    }
+    return 200;
+}
+
 void beamAnimationRainbowComets()
 {
     shiftToRight(trig, 120);
@@ -115,7 +126,7 @@ void drumAnimation()
     {
         for (int i = 0; i < DRUM_NUM_LEDS; i++)
         {
-            drumLedsHSV[i].v = 200;
+            drumLedsHSV[i].v = brightness(triggerValue);
             drumLedsHSV[i].h += 40;
             drumLedsHSV[i].s = 0;
         }
@@ -155,11 +166,9 @@ void drumIdleAnimation()
     {
         ledPosDrum = 0;
         idleValue = 200;
-        idleHue = random(0, 255);
+        idleHue = random(0, 255); // TODO: Why does this not change color?
         isFullyColored = true;
     }
-
-    Serial.println(ledPosDrum);
 }
 
 void updateBeamAnimation()
@@ -186,7 +195,6 @@ void resetIdleTimer()
 {
     idleTimer = millis();
     status = ACTIVE;
-    Serial.println(status);
 }
 
 // have a random chance of triggering the animation
@@ -200,12 +208,18 @@ void idleGovernor()
 
 void readTrigger()
 {
+    // Define trigger value boundaries
+    int triggerThreshold = 100;
+    int triggerHysterisis = 50;
+
     // read the state of the pushbutton value:
     triggerValue = analogRead(TRIGGER_PIN);
 
     // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
     if (triggerValue > triggerThreshold && triggerFlag == false)
     {
+        Serial.println(triggerValue);
+
         // reset idle timer
         resetIdleTimer();
 
