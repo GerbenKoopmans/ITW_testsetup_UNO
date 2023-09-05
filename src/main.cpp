@@ -55,6 +55,11 @@ int idleTimer = 0;
 int idleThreshold = 10000;
 boolean idleFlag = false;
 
+// Led ring idle animation
+int ledPosDrum = 0;
+int idleHue = 100;
+boolean isFullyColored = true;
+
 // shift all elements upto the n-th position 1 position to the right
 void shiftToRight(int a[], int n)
 {
@@ -116,6 +121,34 @@ void drumAnimation()
 
         drumLedsHSV[i].v = max(int(drumLedsHSV[i].v - release), 0);
         drumLedsHSV[i].h = min(drumLedsHSV[i].s + 50, 255);
+    }
+}
+
+void drumIdleAnimation()
+{
+    // Give led a random color
+    drumLedsHSV[ledPosDrum].v = 200;
+    drumLedsHSV[ledPosDrum].h = idleHue;
+    drumLedsHSV[ledPosDrum].s = 0;
+
+    // Update LED position
+    if (ledPosDrum <= DRUM_NUM_LEDS)
+    {
+        ledPosDrum++;
+    }
+    // Turn LEDs off
+    else if (isFullyColored)
+    {
+        ledPosDrum = 0;
+        idleHue = 0;
+        isFullyColored = false;
+    }
+    // Turn LEDs on
+    else if (!isFullyColored)
+    {
+        ledPosDrum = 0;
+        idleHue = random(0, 255);
+        isFullyColored = true;
     }
 }
 
@@ -211,7 +244,8 @@ void loop()
         }
 
         // when idle, call idleGovernor every animation frame to trigger random animations
-        idleGovernor();
+        // idleGovernor();
+        drumIdleAnimation();
     }
 
     updateBeamAnimation();
