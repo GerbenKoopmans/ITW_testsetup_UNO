@@ -4,12 +4,20 @@
 
 FASTLED_USING_NAMESPACE
 
-// LED beam options
-#define BEAM_DATA_PIN 27
+// LED beam constants
+#define BEAM_NUM_STRIPS 2
+#define STRIP_NUM_LEDS 180
+#define BEAM_BRIGHTNESS 40
 #define BEAM_LED_TYPE WS2812B
 #define BEAM_COLOR_ORDER GRB
-#define BEAM_NUM_LEDS 180
-#define BEAM_BRIGHTNESS 40
+const int BEAM_NUM_LEDS = BEAM_NUM_STRIPS * STRIP_NUM_LEDS;
+
+// Beam connections
+#define BEAM_1_STRIP_1_DATA_PIN 14
+#define BEAM_1_STRIP_2_DATA_PIN 27
+#define BEAM_1_STRIP_3_DATA_PIN 26
+#define BEAM_1_STRIP_4_DATA_PIN 25
+#define BEAM_1_STRIP_5_DATA_PIN 33
 
 // LED drum options
 #define DRUM_DATA_PIN 12
@@ -19,7 +27,7 @@ FASTLED_USING_NAMESPACE
 #define DRUM_BRIGHTNESS 40
 
 // LED options
-#define FRAMES_PER_SECOND 40
+#define FRAMES_PER_SECOND 60
 
 // Define pins
 #define TRIGGER_PIN 13
@@ -58,12 +66,12 @@ int idleHue = 100;
 int idleValue = 200;
 boolean isFullyColored = true;
 
-uint8_t status;
 enum status_types_t
 {
     ACTIVE,
     IDLE
 };
+uint8_t status = ACTIVE;
 
 // shift all elements upto the n-th position 1 position to the right
 void shiftToRight(int a[], int n)
@@ -248,7 +256,12 @@ void setup()
     delay(3000);
 
     // tell FastLED about the LED beam configuration
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, BEAM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+
+    // Beam 1 strip 1, no offset (starting ledstrip)
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_STRIP_1_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, 0, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    // Beam 1 strip 2, offset first strip
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_STRIP_2_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, STRIP_NUM_LEDS, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
+
     // set master BEAM_BRIGHTNESS control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
 
