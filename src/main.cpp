@@ -237,9 +237,9 @@ ADS1115 initializeAdc(ADS1115 ADC, int I2C_adress)
     return ADC;
 }
 
-float readAdc()
+float readAdc(int AdcId)
 {
-    return abs(ADS.readADC_Differential_0_1() * multiplier);
+    return abs(ADC[AdcId].readADC_Differential_0_1() * multiplier);
 }
 
 int changeModeOtherMcuI2c(int mode)
@@ -268,7 +268,7 @@ void readTrigger()
     int triggerHysterisis = 50;
 
     // read the state of the pushbutton value:
-    triggerValue = readAdc();
+    triggerValue = readAdc(1); //! Change to be compatible to read all the drums!
 
     // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
     if (triggerValue > triggerThreshold && triggerFlag == false)
