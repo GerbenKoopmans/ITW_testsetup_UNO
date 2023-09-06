@@ -2,6 +2,7 @@
 #include "FastLED.h"
 #include "Easing.h"
 #include "ADS1x15.h"
+#include "Wire.h"
 
 FASTLED_USING_NAMESPACE
 
@@ -67,35 +68,31 @@ int idleHue = 100;
 int idleValue = 200;
 boolean isFullyColored = true;
 
-// ADC configuration
-ADS1115 ADS(0x48);
-float multiplier;
+// I2C configuration
+
+#define SDA_1 15
+#define SCL_1 16
+#define SDA_2 17
+#define SCL_2 18
+#define I2C_FREQ 400000
+
+TwoWire I2C_sensors;
+TwoWire I2C_MCU;
 
 // ADC configuration
-ADS1115 ADS(0x48);
+#define AmountOfSensors 4
+ADS1115 ADC[AmountOfSensors];
 float multiplier;
 
+// MCU configuration
+#define AmountOfMcu 2
+
+uint8_t status;
 enum status_types_t
 {
     ACTIVE,
     IDLE
 };
-
-int initializeAdc()
-{
-    multiplier = 0.1875F;
-    if (!ADS.begin())
-    {
-        return -1;
-    }
-    return 0;
-}
-
-float readAdc()
-{
-    return abs(ADS.readADC_Differential_0_1() * multiplier);
-}
-uint8_t status = ACTIVE;
 
 // shift all elements upto the n-th position 1 position to the right
 void shiftToRight(int a[], int n)
@@ -230,6 +227,31 @@ void resetIdleTimer()
     status = ACTIVE;
 }
 
+ADS1115 initializeAdc(ADS1115 ADC, int I2C_adress)
+{
+    ADC = ADS1115(&I2C_sensors, I2C_adress);
+    if (!ADC.begin())
+    {
+        Serial.println("ADC %d Failed to start.", I2C_adress);
+    }
+    return ADC;
+}
+
+float readAdc()
+{
+    return abs(ADS.readADC_Differential_0_1() * multiplier);
+}
+
+int changeModeOtherMcuI2c(int mode)
+{
+    for (uint8_t i = 1; i < AmountOfMcu; i++)
+    {
+        Wire.beginTransmission(i);
+        Wire.write(mode);
+        Wire.endTransmission();
+    }
+}
+
 // have a random chance of triggering the animation
 void idleGovernor()
 {
@@ -306,7 +328,14 @@ void setup()
     // set idleTimer to current time
     idleTimer = millis();
 
-    initializeAdc();
+    multiplier = 0.1875F;
+    I2C_sensors.begin(SDA_1, SCL_1, I2C_FREQ);
+    I2C_MCU.begin(SDA_2, SCL_2, I2C_FREQ);
+
+    for (int i = 0; i < AmountOfSensors; i++)
+    {
+        initializeAdc(ADC[i], 0x48 + i);
+    }
 }
 
 void loop()
