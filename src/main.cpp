@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "FastLED.h"
 #include "Easing.h"
+#include "ADS1x15.h"
 
 FASTLED_USING_NAMESPACE
 
@@ -66,11 +67,34 @@ int idleHue = 100;
 int idleValue = 200;
 boolean isFullyColored = true;
 
+// ADC configuration
+ADS1115 ADS(0x48);
+float multiplier;
+
+// ADC configuration
+ADS1115 ADS(0x48);
+float multiplier;
+
 enum status_types_t
 {
     ACTIVE,
     IDLE
 };
+
+int initializeAdc()
+{
+    multiplier = 0.1875F;
+    if (!ADS.begin())
+    {
+        return -1;
+    }
+    return 0;
+}
+
+float readAdc()
+{
+    return abs(ADS.readADC_Differential_0_1() * multiplier);
+}
 uint8_t status = ACTIVE;
 
 // shift all elements upto the n-th position 1 position to the right
@@ -222,7 +246,7 @@ void readTrigger()
     int triggerHysterisis = 50;
 
     // read the state of the pushbutton value:
-    triggerValue = analogRead(TRIGGER_PIN);
+    triggerValue = readAdc();
 
     // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
     if (triggerValue > triggerThreshold && triggerFlag == false)
@@ -281,6 +305,8 @@ void setup()
 
     // set idleTimer to current time
     idleTimer = millis();
+
+    initializeAdc();
 }
 
 void loop()
