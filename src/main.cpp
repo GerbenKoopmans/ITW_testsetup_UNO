@@ -5,14 +5,14 @@
 FASTLED_USING_NAMESPACE
 
 // LED beam options
-#define BEAM_DATA_PIN 10
+#define BEAM_DATA_PIN 27
 #define BEAM_LED_TYPE WS2812B
 #define BEAM_COLOR_ORDER GRB
-#define BEAM_NUM_LEDS 120
+#define BEAM_NUM_LEDS 180
 #define BEAM_BRIGHTNESS 40
 
 // LED drum options
-#define DRUM_DATA_PIN 11
+#define DRUM_DATA_PIN 12
 #define DRUM_LED_TYPE WS2812B
 #define DRUM_COLOR_ORDER GRB
 #define DRUM_NUM_LEDS 60
@@ -22,8 +22,8 @@ FASTLED_USING_NAMESPACE
 #define FRAMES_PER_SECOND 40
 
 // Define pins
-#define TRIGGER_PIN 14
-#define ONBOARD_LED_PIN 13
+#define TRIGGER_PIN 13
+#define ONBOARD_LED_PIN 2
 
 // Define arrays that hold led beam colour.
 CRGB beamLedsRGB[BEAM_NUM_LEDS];
@@ -105,7 +105,7 @@ int brightness(int trigger) // TODO: Make sure this changes the brightness accor
 
 void beamAnimationRainbowComets()
 {
-    shiftToRight(trig, 120);
+    shiftToRight(trig, BEAM_NUM_LEDS);
     for (int i = 0; i < BEAM_NUM_LEDS; i++)
     {
         if (trig[i] == 1)
@@ -122,11 +122,12 @@ void beamAnimationRainbowComets()
 void drumAnimation()
 {
     // if drum hit, fire up all leds
-    if (trig[0] == 1)
+    if (trig[1] == 1)
     {
         for (int i = 0; i < DRUM_NUM_LEDS; i++)
         {
-            drumLedsHSV[i].v = brightness(triggerValue);
+            // drumLedsHSV[i].v = brightness(triggerValue);
+            drumLedsHSV[i].v = 200;
             drumLedsHSV[i].h += 40;
             drumLedsHSV[i].s = 0;
         }
@@ -138,7 +139,7 @@ void drumAnimation()
         int release = 40;
 
         drumLedsHSV[i].v = max(int(drumLedsHSV[i].v - release), 0);
-        drumLedsHSV[i].h = min(drumLedsHSV[i].s + 50, 255);
+        drumLedsHSV[i].s = min(drumLedsHSV[i].s + 50, 255);
     }
 }
 
@@ -146,8 +147,8 @@ void drumIdleAnimation()
 {
     // Give led a random color
     drumLedsHSV[ledPosDrum].v = idleValue;
-    drumLedsHSV[ledPosDrum].h = idleHue;
-    drumLedsHSV[ledPosDrum].s = 0;
+    drumLedsHSV[ledPosDrum].h += 40;
+    drumLedsHSV[ledPosDrum].s = idleHue;
 
     // Update LED position
     if (ledPosDrum <= DRUM_NUM_LEDS)
@@ -281,7 +282,7 @@ void loop()
         checkForIdle();
         break;
     case IDLE:
-        idleGovernor();
+        // idleGovernor();
         drumIdleAnimation();
         break;
     }
