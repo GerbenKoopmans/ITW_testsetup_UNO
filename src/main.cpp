@@ -62,22 +62,24 @@ boolean isFullyColored = true;
 
 // I2C configuration
 
-#define SDA_1 15
-#define SCL_1 16
+#define SDA_1 22
+#define SCL_1 23
 #define SDA_2 17
 #define SCL_2 18
 #define I2C_FREQ 400000
 
-TwoWire I2C_sensors;
-TwoWire I2C_MCU;
+TwoWire I2C_sensors = TwoWire(0);
+TwoWire I2C_MCU = TwoWire(1);
 
 // ADC configuration
-#define AmountOfSensors 4
-ADS1115 ADC[AmountOfSensors];
+#define AmountOfSensors 3 //amount of ADC boards that will be activated. Addresses are counted upwards from 0x48 to 0x4b so its not possible to have 0x48 and 0x4a without 0x49.
+ADS1115 ADC[4] = {ADS1115(0x48,&I2C_sensors),ADS1115(0x49,&I2C_sensors),ADS1115(0x4a,&I2C_sensors),ADS1115(0x4b,&I2C_sensors)};
+
 float multiplier;
+float ADCValues[AmountOfSensors];
 
 //MCU configuration
-#define AmountOfMcu 2
+#define AmountOfMcu 1
 
 uint8_t status;
 enum status_types_t
@@ -221,28 +223,29 @@ void resetIdleTimer()
 
 ADS1115 initializeAdc(ADS1115 ADC, int I2C_adress)
 {
-    ADC = ADS1115(&I2C_sensors, I2C_adress);
+    ADC = ADS1115(I2C_adress, &I2C_sensors);
     if(!ADC.begin())
     {
-        Serial.println("ADC %d Failed to start.", I2C_adress);
+        Serial.printf("ADC %d Failed to start. \n", I2C_adress);
+        
     }
     return ADC;
 }
 
-float readAdc()
+float readAdc(int ADCNumber)
 {
-    return abs(ADS.readADC_Differential_0_1() * multiplier);
+    return abs(ADC[ADCNumber].readADC_Differential_0_1() * multiplier);
 }
 
-int changeModeOtherMcuI2c(int mode)
-{
-    for (uint8_t i = 1; i < AmountOfMcu; i++)
-    {
-        Wire.beginTransmission(i);
-        Wire.write(mode);
-        Wire.endTransmission();
-    }
-}
+// int changeModeOtherMcuI2c(int mode)
+// {
+//     for (uint8_t i = 1; i < AmountOfMcu; i++)
+//     {
+//         Wire.beginTransmission(i);
+//         Wire.write(mode);
+//         Wire.endTransmission();
+//     }
+// }
 
 // have a random chance of triggering the animation
 void idleGovernor()
@@ -253,20 +256,19 @@ void idleGovernor()
     }
 }
 
-void readTrigger()
+void readTrigger(int ADCNumber)
 {
     // Define trigger value boundaries
     int triggerThreshold = 100;
     int triggerHysterisis = 50;
 
     // read the state of the pushbutton value:
-    triggerValue = readAdc();
+    triggerValue = readAdc(ADCNumber);
+    ADCValues[ADCNumber] = triggerValue;
 
     // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
     if (triggerValue > triggerThreshold && triggerFlag == false)
     {
-        Serial.println(triggerValue);
-
         // reset idle timer
         resetIdleTimer();
 
@@ -321,14 +323,35 @@ void setup()
     
     for (int i = 0; i < AmountOfSensors; i++)
     {
-        initializeAdc(ADC[i], 0x48+i);
+        if(!ADC[i].begin())
+        {
+        Serial.printf("ADC %d connection with address %x failed.", i+1, i + 0x48);
+        while (true);
+         
+        }
     }
     
 }
 
 void loop()
 {
-    readTrigger();
+    for (int i = 0; i < AmountOfSensors; i++)
+    {
+        readTrigger(i);
+    }
+    
+    for (int i = 0; i < AmountOfSensors; i++)
+    {
+        if (i+1 != AmountOfSensors)
+        {
+        Serial.printf("%f ",ADCValues[i]);
+        }
+        else
+        {
+        Serial.printf("%f \n",ADCValues[i]);
+        }
+        
+    }
 
     switch (status)
     {
