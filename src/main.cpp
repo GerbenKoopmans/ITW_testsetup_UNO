@@ -6,12 +6,20 @@
 
 FASTLED_USING_NAMESPACE
 
-// LED beam options
-#define BEAM_DATA_PIN 27
+// LED beam constants
+#define BEAM_NUM_STRIPS 2
+#define STRIP_NUM_LEDS 180
+#define BEAM_BRIGHTNESS 40
 #define BEAM_LED_TYPE WS2812B
 #define BEAM_COLOR_ORDER GRB
-#define BEAM_NUM_LEDS 180
-#define BEAM_BRIGHTNESS 40
+const int BEAM_NUM_LEDS = BEAM_NUM_STRIPS * STRIP_NUM_LEDS;
+
+// Beam connections
+#define BEAM_1_STRIP_1_DATA_PIN 14
+#define BEAM_1_STRIP_2_DATA_PIN 27
+#define BEAM_1_STRIP_3_DATA_PIN 26
+#define BEAM_1_STRIP_4_DATA_PIN 25
+#define BEAM_1_STRIP_5_DATA_PIN 33
 
 // LED drum options
 #define DRUM_DATA_PIN 12
@@ -21,7 +29,7 @@ FASTLED_USING_NAMESPACE
 #define DRUM_BRIGHTNESS 40
 
 // LED options
-#define FRAMES_PER_SECOND 40
+#define FRAMES_PER_SECOND 60
 
 // Define pins
 #define TRIGGER_PIN 13
@@ -78,8 +86,8 @@ ADS1115 ADC[4] = {ADS1115(0x48,&I2C_sensors),ADS1115(0x49,&I2C_sensors),ADS1115(
 float multiplier;
 float ADCValues[AmountOfSensors];
 
-//MCU configuration
-#define AmountOfMcu 1
+// MCU configuration
+#define AmountOfMcu 2
 
 uint8_t status;
 enum status_types_t
@@ -223,8 +231,8 @@ void resetIdleTimer()
 
 ADS1115 initializeAdc(ADS1115 ADC, int I2C_adress)
 {
-    ADC = ADS1115(I2C_adress, &I2C_sensors);
-    if(!ADC.begin())
+    ADC = ADS1115(&I2C_sensors, I2C_adress);
+    if (!ADC.begin())
     {
         Serial.printf("ADC %d Failed to start. \n", I2C_adress);
         
@@ -296,7 +304,12 @@ void setup()
     delay(3000);
 
     // tell FastLED about the LED beam configuration
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, BEAM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+
+    // Beam 1 strip 1, no offset (starting ledstrip)
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_STRIP_1_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, 0, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    // Beam 1 strip 2, offset first strip
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_STRIP_2_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, STRIP_NUM_LEDS, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
+
     // set master BEAM_BRIGHTNESS control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
 
@@ -320,7 +333,7 @@ void setup()
     multiplier = 0.1875F;
     I2C_sensors.begin(SDA_1, SCL_1, I2C_FREQ);
     I2C_MCU.begin(SDA_2, SCL_2, I2C_FREQ);
-    
+
     for (int i = 0; i < AmountOfSensors; i++)
     {
         if(!ADC[i].begin())
@@ -330,7 +343,6 @@ void setup()
          
         }
     }
-    
 }
 
 void loop()
