@@ -3,29 +3,96 @@
 #include "Easing.h"
 #include "ADS1x15.h"
 #include "Wire.h"
+#include <vector>
 
 FASTLED_USING_NAMESPACE
+using std::vector;
 
 // LED beam constants
-#define BEAM_NUM_STRIPS 2
-#define STRIP_NUM_LEDS 180
 #define BEAM_BRIGHTNESS 40
-#define BEAM_LED_TYPE WS2812B
-#define BEAM_COLOR_ORDER GRB
-const int BEAM_NUM_LEDS = BEAM_NUM_STRIPS * STRIP_NUM_LEDS;
+#define BEAM_LEDS 900
+#define BEAM_NUM_STRIPS 5
 
-// Beam connections
-#define BEAM_1_STRIP_1_DATA_PIN 14
-#define BEAM_1_STRIP_2_DATA_PIN 27
-#define BEAM_1_STRIP_3_DATA_PIN 26
-#define BEAM_1_STRIP_4_DATA_PIN 25
-#define BEAM_1_STRIP_5_DATA_PIN 33
+const int BEAM_1_STRIP_PINS[5] = {14, 27, 26, 25, 33};
+
+// class for one led beam, containing public variables numStrips, numLeds, ledType, colorOrder, brightness and an array stripPins.
+class LedBeam
+{
+private:
+    CRGB beamLedsRGB[BEAM_LEDS];
+    CHSV beamLedsHSV[BEAM_LEDS];
+
+public:
+    LedBeam()
+    {
+
+        // Initialize stripPins array
+        for (int i = 0; i < ; i++)
+        {
+            // initialize the beam
+            int ledsPerStrip = BEAM_LEDS / numStrips;
+            FastLED.addLeds<WS2812B, stripPins[i], GRB>(beamLedsRGB, i * ledsPerStrip, ledsPerStrip).setCorrection(TypicalLEDStrip);
+        }
+    }
+};
+
+// create a class for the drum, containing public variables numLeds, ledType, colorOrder and drumPin.
+class LedDrum
+{
+private:
+    int numLeds;
+    int ledType;
+    int colorOrder;
+    int drumPin;
+
+    LedDrum(int numLeds, int ledType, int colorOrder, int drumPin)
+    {
+        this->numLeds = numLeds;
+        this->ledType = ledType;
+        this->colorOrder = colorOrder;
+        this->drumPin = drumPin;
+
+        // initialize the drum
+        FastLED.addLeds<ledType, drumPin, colorOrder>(drumLedsRGB, 0, numLeds).setCorrection(TypicalLEDStrip);
+    }
+};
+
+// create a class DrumTrigger that contains a triggerPin and a trig array
+class DrumTrigger
+{
+private:
+    int triggerPin;
+
+    DrumTrigger(int triggerPin)
+    {
+        this->triggerPin = triggerPin;
+        this->trig = trig[];
+        // initialize the buttonpin as an input:
+        pinMode(TRIGGER_PIN, INPUT);
+    }
+};
+
+// create a class DrumSystem that contains a LedDrum and a LedBeam
+class DrumSystem
+{
+private:
+    int trig;
+
+public:
+    LedDrum ledDrum;
+    LedBeam ledBeam;
+    DrumTrigger drumTrigger;
+
+    DrumSystem(LedDrum ledDrum, LedBeam ledBeam, DrumTrigger drumTrigger)
+    {
+        this->ledDrum = ledDrum;
+        this->ledBeam = ledBeam;
+        this->drumTrigger = drumTrigger;
+        this->trig = trig[ledBeam.totalNumLeds];
+    }
+};
 
 // LED drum options
-#define DRUM_DATA_PIN 12
-#define DRUM_LED_TYPE WS2812B
-#define DRUM_COLOR_ORDER GRB
-#define DRUM_NUM_LEDS 60
 #define DRUM_BRIGHTNESS 40
 
 // LED options
@@ -34,17 +101,6 @@ const int BEAM_NUM_LEDS = BEAM_NUM_STRIPS * STRIP_NUM_LEDS;
 // Define pins
 #define TRIGGER_PIN 13
 #define ONBOARD_LED_PIN 2
-
-// Define arrays that hold led beam colour.
-CRGB beamLedsRGB[BEAM_NUM_LEDS];
-CHSV beamLedsHSV[BEAM_NUM_LEDS];
-
-// Define array that holds led drum colour.
-CRGB drumLedsRGB[DRUM_NUM_LEDS];
-CHSV drumLedsHSV[DRUM_NUM_LEDS];
-
-// Define array that holds trigger values for drum hit.
-int trig[BEAM_NUM_LEDS + 1];
 
 // Define easing function
 EasingFunc<Ease::QuadInOut> e;
@@ -80,8 +136,8 @@ TwoWire I2C_sensors = TwoWire(0);
 TwoWire I2C_MCU = TwoWire(1);
 
 // ADC configuration
-#define AmountOfSensors 3 //amount of ADC boards that will be activated. Addresses are counted upwards from 0x48 to 0x4b so its not possible to have 0x48 and 0x4a without 0x49.
-ADS1115 ADC[4] = {ADS1115(0x48,&I2C_sensors),ADS1115(0x49,&I2C_sensors),ADS1115(0x4a,&I2C_sensors),ADS1115(0x4b,&I2C_sensors)};
+#define AmountOfSensors 3 // amount of ADC boards that will be activated. Addresses are counted upwards from 0x48 to 0x4b so its not possible to have 0x48 and 0x4a without 0x49.
+ADS1115 ADC[4] = {ADS1115(0x48, &I2C_sensors), ADS1115(0x49, &I2C_sensors), ADS1115(0x4a, &I2C_sensors), ADS1115(0x4b, &I2C_sensors)};
 
 float multiplier;
 float ADCValues[AmountOfSensors];
@@ -235,7 +291,6 @@ ADS1115 initializeAdc(ADS1115 ADC, int I2C_adress)
     if (!ADC.begin())
     {
         Serial.printf("ADC %d Failed to start. \n", I2C_adress);
-        
     }
     return ADC;
 }
@@ -304,25 +359,17 @@ void setup()
     delay(3000);
 
     // tell FastLED about the LED beam configuration
+    DrumSystem drumSystem1 = DrumSystem(
+        LedDrum(60, 40, WS2812B, GRB, 32),
+        LedBeam(),
+        DrumTrigger(TRIGGER_PIN));
 
-    // Beam 1 strip 1, no offset (starting ledstrip)
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_STRIP_1_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, 0, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    // Beam 1 strip 2, offset first strip
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_STRIP_2_DATA_PIN, BEAM_COLOR_ORDER>(beamLedsRGB, STRIP_NUM_LEDS, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-
-    // set master BEAM_BRIGHTNESS control
+    // set master brightness control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
-
-    // tell FastLED about the LED DRUM configuration
-    FastLED.addLeds<DRUM_LED_TYPE, DRUM_DATA_PIN, DRUM_COLOR_ORDER>(drumLedsRGB, DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    // set master DRUM_BRIGHTNESS control
     FastLED.setBrightness(DRUM_BRIGHTNESS);
 
     // initialize the onboard LED pin as an output:
     pinMode(ONBOARD_LED_PIN, OUTPUT);
-
-    // initialize the buttonpin as an input:
-    pinMode(TRIGGER_PIN, INPUT);
 
     // initialize serial communication at 9600 bits per second:
     Serial.begin(9600);
@@ -336,11 +383,11 @@ void setup()
 
     for (int i = 0; i < AmountOfSensors; i++)
     {
-        if(!ADC[i].begin())
+        if (!ADC[i].begin())
         {
-        Serial.printf("ADC %d connection with address %x failed.", i+1, i + 0x48);
-        while (true);
-         
+            Serial.printf("ADC %d connection with address %x failed.", i + 1, i + 0x48);
+            while (true)
+                ;
         }
     }
 }
@@ -351,18 +398,17 @@ void loop()
     {
         readTrigger(i);
     }
-    
+
     for (int i = 0; i < AmountOfSensors; i++)
     {
-        if (i+1 != AmountOfSensors)
+        if (i + 1 != AmountOfSensors)
         {
-        Serial.printf("%f ",ADCValues[i]);
+            Serial.printf("%f ", ADCValues[i]);
         }
         else
         {
-        Serial.printf("%f \n",ADCValues[i]);
+            Serial.printf("%f \n", ADCValues[i]);
         }
-        
     }
 
     switch (status)
