@@ -12,7 +12,7 @@ FASTLED_USING_NAMESPACE
 #define BEAM_BRIGHTNESS 40
 #define BEAM_LED_TYPE WS2812B
 #define BEAM_COLOR_ORDER GRB
-#define BEAM_NUM_LEDS 640
+#define BEAM_NUM_LEDS 720 // TODO: try a lower value?
 
 // Beam connections 1
 #define BEAM_1_1 33
@@ -36,10 +36,10 @@ FASTLED_USING_NAMESPACE
 #define DRUM_BRIGHTNESS 40
 
 // LED options
-#define FRAMES_PER_SECOND 40
+#define FRAMES_PER_SECOND 60
 
 // Define pins
-#define ONBOARD_LED_PIN 2
+// #define ONBOARD_LED_PIN 2
 
 // Define arrays that hold led beam colour.
 CRGB beamLedsRGB[NUM_SYS][BEAM_NUM_LEDS];
@@ -66,7 +66,7 @@ uint8_t masterHue = 0;        // rotating "base color" used by many of the patte
 
 // Define idle timer
 unsigned long idleTimer = 0;
-unsigned long idleThreshold = 10000;
+unsigned long idleThreshold = 300000;
 
 // Led ring idle animation
 int ledPosDrum = 0;
@@ -87,6 +87,7 @@ TwoWire I2C_MCU = TwoWire(1);
 
 // ADC configuration
 #define AmountOfSensors 2 // amount of ADC boards that will be activated. Addresses are counted upwards from 0x48 to 0x4b so its not possible to have 0x48 and 0x4a without 0x49.
+// TODO: Change to 2 ADC array?
 ADS1115 ADC[4] = {ADS1115(0x48, &I2C_sensors), ADS1115(0x49, &I2C_sensors), ADS1115(0x4a, &I2C_sensors), ADS1115(0x4b, &I2C_sensors)};
 
 float multiplier;
@@ -146,7 +147,7 @@ int brightness(int trigger) // TODO: Make sure this changes the brightness accor
 void beamAnimationRainbowComets(int system)
 {
     // shift all beams in the system to the right
-    for (int i = 0; i < NUM_SYS; i++)
+    for (int i = 0; i < NUM_SYS; i++) // Q: Wat doet dit? Is dit niet dubbelop met de updateBeamAnimation functie? (Het checken van alle systemen)
     {
         shiftToRight(trig[system], BEAM_NUM_LEDS);
     }
@@ -160,6 +161,30 @@ void beamAnimationRainbowComets(int system)
             beamLedsHSV[system][i].s = 0;
         }
         beamLedsHSV[system][i].v = max(int(beamLedsHSV[system][i].v - random(2) * 20), 0);
+        beamLedsHSV[system][i].s = min(beamLedsHSV[system][i].s + 50, 255);
+    }
+}
+
+void simpleBeamAnimation(int system)
+{
+    // if drum hit, fire up all leds
+    if (trig[system][1] == 1)
+    {
+        for (int i = 0; i < BEAM_NUM_LEDS; i += 20)
+        {
+            // drumLedsHSV[i].v = brightness(triggerValue);
+            beamLedsHSV[system][i].v = 200;
+            beamLedsHSV[system][i].h += 40;
+            beamLedsHSV[system][i].s = 0;
+        }
+    }
+
+    // decrease all leds brightness
+    for (int i = 0; i < BEAM_NUM_LEDS; i += 20)
+    {
+        int release = 40;
+
+        beamLedsHSV[system][i].v = max(int(beamLedsHSV[system][i].v - release), 0);
         beamLedsHSV[system][i].s = min(beamLedsHSV[system][i].s + 50, 255);
     }
 }
@@ -216,7 +241,7 @@ void drumIdleAnimation()
         {
             ledPosDrum = 0;
             idleValue = 200;
-            idleHue = random(0, 255); // TODO: Why does this not change color?
+            idleHue = random(0, 255);
             isFullyColored = true;
         }
     }
@@ -227,7 +252,8 @@ void updateBeamAnimation()
     // for all systems update the beam animation
     for (int i = 0; i < NUM_SYS; i++)
     {
-        beamAnimationRainbowComets(i);
+        // beamAnimationRainbowComets(i);
+        simpleBeamAnimation(i);
     }
 }
 
@@ -270,19 +296,6 @@ float readAdc(int ADCNumber)
 //     }
 // }
 
-// have a random chance of triggering the animation
-void idleGovernor()
-{
-    if (random(100) > 90)
-    {
-        // for all systems set the first element of the trigger array to 1
-        for (int i = 0; i < NUM_SYS; i++)
-        {
-            trig[i][0] = 1;
-        }
-    }
-}
-
 void readTrigger(int ADCNumber)
 {
     // Define trigger value boundaries
@@ -309,13 +322,13 @@ void readTrigger(int ADCNumber)
         triggerFlag = true;
 
         // turn on onboard led
-        digitalWrite(ONBOARD_LED_PIN, HIGH);
+        // digitalWrite(ONBOARD_LED_PIN, HIGH);
     }
     // check if triggerValue has dipped below triggerHysterisis and triggerFlag is true.
     else if (triggerValue < triggerHysterisis && triggerFlag == true)
     {
         triggerFlag = false;
-        digitalWrite(ONBOARD_LED_PIN, LOW);
+        // digitalWrite(ONBOARD_LED_PIN, LOW);
     }
 }
 
@@ -328,16 +341,16 @@ void setup()
     // tell FastLED about the LED beam configuration
 
     // Beam 1 strips
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_1, BEAM_COLOR_ORDER>(beamLedsRGB[1], 0, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_2, BEAM_COLOR_ORDER>(beamLedsRGB[1], STRIP_NUM_LEDS, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_3, BEAM_COLOR_ORDER>(beamLedsRGB[1], STRIP_NUM_LEDS * 2, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_4, BEAM_COLOR_ORDER>(beamLedsRGB[1], STRIP_NUM_LEDS * 3, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_1, BEAM_COLOR_ORDER>(beamLedsRGB[1], 0, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_2, BEAM_COLOR_ORDER>(beamLedsRGB[1], 180, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_3, BEAM_COLOR_ORDER>(beamLedsRGB[1], 360, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_4, BEAM_COLOR_ORDER>(beamLedsRGB[1], 540, 180).setCorrection(TypicalLEDStrip);
 
     // Beam 2 strips)
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_1, BEAM_COLOR_ORDER>(beamLedsRGB[2], 0, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_2, BEAM_COLOR_ORDER>(beamLedsRGB[2], STRIP_NUM_LEDS, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_3, BEAM_COLOR_ORDER>(beamLedsRGB[2], STRIP_NUM_LEDS * 2, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_4, BEAM_COLOR_ORDER>(beamLedsRGB[2], STRIP_NUM_LEDS * 3, STRIP_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_1, BEAM_COLOR_ORDER>(beamLedsRGB[2], 0, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_2, BEAM_COLOR_ORDER>(beamLedsRGB[2], 180, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_3, BEAM_COLOR_ORDER>(beamLedsRGB[2], 360, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_4, BEAM_COLOR_ORDER>(beamLedsRGB[2], 540, 180).setCorrection(TypicalLEDStrip);
 
     // set master BEAM_BRIGHTNESS control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
@@ -345,11 +358,12 @@ void setup()
     // tell FastLED about the LED DRUM configuration
     FastLED.addLeds<DRUM_LED_TYPE, DRUM_1, DRUM_COLOR_ORDER>(drumLedsRGB[1], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
     FastLED.addLeds<DRUM_LED_TYPE, DRUM_2, DRUM_COLOR_ORDER>(drumLedsRGB[2], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+
     // set master DRUM_BRIGHTNESS control
     FastLED.setBrightness(DRUM_BRIGHTNESS);
 
     // initialize the onboard LED pin as an output:
-    pinMode(ONBOARD_LED_PIN, OUTPUT);
+    // pinMode(ONBOARD_LED_PIN, OUTPUT);
 
     // initialize serial communication at 9600 bits per second:
     Serial.begin(9600);
@@ -399,7 +413,6 @@ void loop()
         checkForIdle();
         break;
     case IDLE:
-        // idleGovernor();
         drumIdleAnimation();
         break;
     }
