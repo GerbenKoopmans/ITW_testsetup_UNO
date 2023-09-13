@@ -9,12 +9,10 @@ FASTLED_USING_NAMESPACE
 #define NUM_SYS 2 // Number of systems
 
 // LED beam constants
-#define BEAM_NUM_STRIPS 4
-#define STRIP_NUM_LEDS 180
 #define BEAM_BRIGHTNESS 40
 #define BEAM_LED_TYPE WS2812B
 #define BEAM_COLOR_ORDER GRB
-const int BEAM_NUM_LEDS = BEAM_NUM_STRIPS * STRIP_NUM_LEDS;
+#define BEAM_NUM_LEDS 640
 
 // Beam connections 1
 #define BEAM_1_1 33
