@@ -9,7 +9,7 @@ FASTLED_USING_NAMESPACE
 #define NUM_SYS 2 // Number of systems
 
 // LED beam constants
-#define BEAM_BRIGHTNESS 40
+#define BEAM_BRIGHTNESS 255
 #define BEAM_LED_TYPE WS2812B
 #define BEAM_COLOR_ORDER GRB
 #define BEAM_NUM_LEDS 720 // TODO: try a lower value?
@@ -33,10 +33,10 @@ FASTLED_USING_NAMESPACE
 #define DRUM_LED_TYPE WS2812B
 #define DRUM_COLOR_ORDER GRB
 #define DRUM_NUM_LEDS 60
-#define DRUM_BRIGHTNESS 40
+#define DRUM_BRIGHTNESS 255
 
 // LED options
-#define FRAMES_PER_SECOND 60
+#define FRAMES_PER_SECOND 1000
 
 // Define pins
 // #define ONBOARD_LED_PIN 2
@@ -146,11 +146,7 @@ int brightness(int trigger) // TODO: Make sure this changes the brightness accor
 
 void beamAnimationRainbowComets(int system)
 {
-    // shift all beams in the system to the right
-    for (int i = 0; i < NUM_SYS; i++)
-    {
-        shiftToRight(trig[system], BEAM_NUM_LEDS);
-    }
+    shiftToRight(trig[system], BEAM_NUM_LEDS);
 
     for (int i = 0; i < BEAM_NUM_LEDS; i++)
     {
@@ -162,25 +158,6 @@ void beamAnimationRainbowComets(int system)
         }
         beamLedsHSV[system][i].v = max(int(beamLedsHSV[system][i].v - random(2) * 20), 0);
         beamLedsHSV[system][i].s = min(beamLedsHSV[system][i].s + 50, 255);
-    }
-}
-
-void simpleBeamAnimation(int system)
-{
-    // if drum hit, fire up all leds
-    if (trig[system][0] == 1)
-    {
-        Serial.println("beam on");
-        for (int i = 0; i < BEAM_NUM_LEDS; i++)
-        {
-            beamLedsHSV[system][i].v = 200;
-            beamLedsHSV[system][i].h = 50;
-            beamLedsHSV[system][i].s = 50;
-            //      leds2[x][i] = CRGB::Red;
-            FastLED.show();
-            //      leds2[x][i] = CRGB::Black;
-            delay(10);
-        }
     }
 }
 
@@ -247,8 +224,7 @@ void updateBeamAnimation()
     // for all systems update the beam animation
     for (int i = 0; i < NUM_SYS; i++)
     {
-        // beamAnimationRainbowComets(i);
-        simpleBeamAnimation(i);
+        beamAnimationRainbowComets(i);
     }
 }
 
@@ -294,7 +270,7 @@ float readAdc(int ADCNumber)
 void readTrigger(int ADCNumber)
 {
     // Define trigger value boundaries
-    int triggerThreshold = 15;
+    int triggerThreshold = 5;
     int triggerHysterisis = 1;
 
     // read the state of the pushbutton value:
@@ -340,23 +316,23 @@ void setup()
     // tell FastLED about the LED beam configuration
 
     // Beam 1 strips
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_1, BEAM_COLOR_ORDER>(beamLedsRGB[1], 0, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_2, BEAM_COLOR_ORDER>(beamLedsRGB[1], 180, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_3, BEAM_COLOR_ORDER>(beamLedsRGB[1], 360, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_4, BEAM_COLOR_ORDER>(beamLedsRGB[1], 540, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_1, BEAM_COLOR_ORDER>(beamLedsRGB[0], 0, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_2, BEAM_COLOR_ORDER>(beamLedsRGB[0], 180, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_3, BEAM_COLOR_ORDER>(beamLedsRGB[0], 360, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_4, BEAM_COLOR_ORDER>(beamLedsRGB[0], 540, 180).setCorrection(TypicalLEDStrip);
 
     // Beam 2 strips)
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_1, BEAM_COLOR_ORDER>(beamLedsRGB[2], 0, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_2, BEAM_COLOR_ORDER>(beamLedsRGB[2], 180, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_3, BEAM_COLOR_ORDER>(beamLedsRGB[2], 360, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_4, BEAM_COLOR_ORDER>(beamLedsRGB[2], 540, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_1, BEAM_COLOR_ORDER>(beamLedsRGB[1], 0, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_2, BEAM_COLOR_ORDER>(beamLedsRGB[1], 180, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_3, BEAM_COLOR_ORDER>(beamLedsRGB[1], 360, 180).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_4, BEAM_COLOR_ORDER>(beamLedsRGB[1], 540, 180).setCorrection(TypicalLEDStrip);
 
     // set master BEAM_BRIGHTNESS control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
 
     // tell FastLED about the LED DRUM configuration
-    FastLED.addLeds<DRUM_LED_TYPE, DRUM_1, DRUM_COLOR_ORDER>(drumLedsRGB[1], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<DRUM_LED_TYPE, DRUM_2, DRUM_COLOR_ORDER>(drumLedsRGB[2], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<DRUM_LED_TYPE, DRUM_1, DRUM_COLOR_ORDER>(drumLedsRGB[0], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<DRUM_LED_TYPE, DRUM_2, DRUM_COLOR_ORDER>(drumLedsRGB[1], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
 
     // set master DRUM_BRIGHTNESS control
     FastLED.setBrightness(DRUM_BRIGHTNESS);
@@ -387,6 +363,7 @@ void setup()
 
 void loop()
 {
+    Serial.printf("start: %d\n", millis());
     for (int i = 0; i < AmountOfSensors; i++)
     {
         readTrigger(i);
@@ -403,6 +380,7 @@ void loop()
             // Serial.printf("%f", ADCValues[i]);
         }
     }
+    Serial.printf("eind: %d\n", millis());
 
     switch (status)
     {
@@ -419,5 +397,5 @@ void loop()
     hsv2rgb();
 
     FastLED.show();
-    FastLED.delay(1000 / FRAMES_PER_SECOND);
+    // FastLED.delay(1000 / FRAMES_PER_SECOND);
 }
