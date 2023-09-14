@@ -187,11 +187,6 @@ void drumAnimation(int system)
     }
 }
 
-for (int i = 0; i < DRUM_NUM_LEDS; i++)
-{
-}
-}
-
 void drumIdleAnimation()
 {
 
