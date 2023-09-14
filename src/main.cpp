@@ -119,8 +119,15 @@ void hsv2rgb()
 {
     for (int j = 0; j < NUM_SYS - 1; j++)
     {
-        hsv2rgb_rainbow(beamLedsHSV[j], beamLedsRGB[j], BEAM_NUM_LEDS);
-        hsv2rgb_rainbow(drumLedsHSV[j], drumLedsRGB[j], DRUM_NUM_LEDS);
+        for (int i = 0; i < BEAM_NUM_LEDS; i++)
+        {
+            beamLedsRGB[j][i] = beamLedsHSV[j][i];
+        }
+
+        for (int i = 0; i < DRUM_NUM_LEDS; i++)
+        {
+            drumLedsRGB[j][i] = drumLedsHSV[j][i];
+        }
     }
 }
 
