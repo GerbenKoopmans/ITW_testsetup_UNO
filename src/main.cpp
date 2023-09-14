@@ -38,6 +38,9 @@ int trig[NUM_SYS][BEAM_NUM_LEDS + 1];
 int triggerValue = 0;
 bool triggerFlag = false;
 
+int triggerThreshold = 70;
+int triggerHysterisis = 40;
+
 unsigned long idleTimer = 0;
 unsigned long idleThreshold = 300000;
 
@@ -68,10 +71,20 @@ enum status_types_t
     IDLE
 };
 
+void shiftToRight(int a[])
+{
+    memmove(a + 1, a, sizeof(a) - sizeof(a[0]));
+    a[0] = 0;
+}
+
+void resetIdleTimer()
+{
+    idleTimer = millis();
+    status = ACTIVE;
+}
+
 void readTrigger(int ADCNumber)
 {
-    int triggerThreshold = 5;
-    int triggerHysterisis = 1;
 
     triggerValue = abs(ADC[ADCNumber].readADC_Differential_0_1() * multiplier);
     ADCValues[ADCNumber] = triggerValue;
@@ -171,12 +184,6 @@ void checkForIdle()
     }
 }
 
-void resetIdleTimer()
-{
-    idleTimer = millis();
-    status = ACTIVE;
-}
-
 void hsv2rgb()
 {
     for (int i = 0; i < NUM_SYS; i++)
@@ -190,12 +197,6 @@ void hsv2rgb()
             drumLedsRGB[i][j] = drumLedsHSV[i][j];
         }
     }
-}
-
-void shiftToRight(int a[])
-{
-    memmove(a + 1, a, sizeof(a) - sizeof(a[0]));
-    a[0] = 0;
 }
 
 void setup()
