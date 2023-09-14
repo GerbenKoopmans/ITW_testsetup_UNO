@@ -117,7 +117,7 @@ void shiftToRight(int a[], int n)
 // convert all HSV values to RGB values
 void hsv2rgb()
 {
-    for (int j = 0; j < NUM_SYS; j++)
+    for (int j = 0; j < NUM_SYS - 1; j++)
     {
         for (int i = 0; i < BEAM_NUM_LEDS; i++)
         {
@@ -156,40 +156,47 @@ void beamAnimationRainbowComets(int system)
             beamLedsHSV[system][i].h += 40;
             beamLedsHSV[system][i].s = 0;
         }
-        beamLedsHSV[system][i].v = max(int(beamLedsHSV[system][i].v - random(2) * 20), 0);
-        beamLedsHSV[system][i].s = min(beamLedsHSV[system][i].s + 50, 255);
+        else
+        {
+            beamLedsHSV[system][i].v = max(int(beamLedsHSV[system][i].v - random(2) * 20), 0);
+            beamLedsHSV[system][i].s = min(beamLedsHSV[system][i].s + 50, 255);
+        }
     }
 }
 
 void drumAnimation(int system)
 {
     // if drum hit, fire up all leds
-    if (trig[system][1] == 1)
+    for (int i = 0; i < DRUM_NUM_LEDS; i++)
     {
-        for (int i = 0; i < DRUM_NUM_LEDS; i++)
+        if (trig[system][1] == 1)
         {
             // drumLedsHSV[i].v = brightness(triggerValue);
             drumLedsHSV[system][i].v = 200;
             drumLedsHSV[system][i].h += 40;
             drumLedsHSV[system][i].s = 0;
         }
-    }
+        else
+        {
+            // decrease all leds brightness
+            int release = 40;
 
-    // decrease all leds brightness
-    for (int i = 0; i < DRUM_NUM_LEDS; i++)
-    {
-        int release = 40;
-
-        drumLedsHSV[system][i].v = max(int(drumLedsHSV[system][i].v - release), 0);
-        drumLedsHSV[system][i].s = min(drumLedsHSV[system][i].s + 50, 255);
+            drumLedsHSV[system][i].v = max(int(drumLedsHSV[system][i].v - release), 0);
+            drumLedsHSV[system][i].s = min(drumLedsHSV[system][i].s + 50, 255);
+        }
     }
+}
+
+for (int i = 0; i < DRUM_NUM_LEDS; i++)
+{
+}
 }
 
 void drumIdleAnimation()
 {
 
     // for all systems, update the leds
-    for (int system = 0; system < NUM_SYS; system++)
+    for (int system = 0; system < NUM_SYS - 1; system++)
     {
         // Give led a random color
         drumLedsHSV[system][ledPosDrum].v = idleValue;
@@ -222,7 +229,7 @@ void drumIdleAnimation()
 void updateBeamAnimation()
 {
     // for all systems update the beam animation
-    for (int i = 0; i < NUM_SYS; i++)
+    for (int i = 0; i < NUM_SYS - 1; i++)
     {
         beamAnimationRainbowComets(i);
     }
@@ -231,7 +238,7 @@ void updateBeamAnimation()
 void updateDrumAnimation()
 {
     // for all systems update the drum animation
-    for (int i = 0; i < NUM_SYS; i++)
+    for (int i = 0; i < NUM_SYS - 1; i++)
     {
         drumAnimation(i);
     }
