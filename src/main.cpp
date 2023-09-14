@@ -1,80 +1,50 @@
 #include <Arduino.h>
 #include "FastLED.h"
-#include "Easing.h"
 #include "ADS1x15.h"
-#include "Wire.h"
 
 FASTLED_USING_NAMESPACE
 
-#define NUM_SYS 2 // Number of systems
+#define NUM_SYS 2
 
-// LED beam constants
 #define BEAM_BRIGHTNESS 255
-#define BEAM_LED_TYPE WS2812B
-#define BEAM_COLOR_ORDER GRB
-#define BEAM_NUM_LEDS 720 // TODO: try a lower value?
+#define LED_TYPE WS2812B
+#define COLOR_ORDER GRB
+#define BEAM_NUM_LEDS 720
 
-// Beam connections 1
 #define BEAM_1_1 33
 #define BEAM_1_2 32
 #define BEAM_1_3 12
 #define BEAM_1_4 13
 
-// Beam connections 2
 #define BEAM_2_1 14
 #define BEAM_2_2 27
 #define BEAM_2_3 26
 #define BEAM_2_4 25
 
-// LED drum options
 #define DRUM_1 2
 #define DRUM_2 4
-
-#define DRUM_LED_TYPE WS2812B
-#define DRUM_COLOR_ORDER GRB
 #define DRUM_NUM_LEDS 60
 #define DRUM_BRIGHTNESS 255
 
-// LED options
 #define FRAMES_PER_SECOND 1000
 
-// Define pins
-// #define ONBOARD_LED_PIN 2
-
-// Define arrays that hold led beam colour.
 CRGB beamLedsRGB[NUM_SYS][BEAM_NUM_LEDS];
 CHSV beamLedsHSV[NUM_SYS][BEAM_NUM_LEDS];
-
-// Define array that holds led drum colour.
 CRGB drumLedsRGB[NUM_SYS][DRUM_NUM_LEDS];
 CHSV drumLedsHSV[NUM_SYS][DRUM_NUM_LEDS];
 
-// Define array that holds trigger values for drum hit.
 int trig[NUM_SYS][BEAM_NUM_LEDS + 1];
 
-// Define easing function
-EasingFunc<Ease::QuadInOut> e;
-float start;
-
-// Define variable and flag to store the button state
 int triggerValue = 0;
 bool triggerFlag = false;
 
-// Define animation variables
-uint8_t currentAnimation = 0; // Index number of which pattern is current
-uint8_t masterHue = 0;        // rotating "base color" used by many of the patterns
-
-// Define idle timer
 unsigned long idleTimer = 0;
 unsigned long idleThreshold = 300000;
 
-// Led ring idle animation
 int ledPosDrum = 0;
 int idleHue = 100;
 int idleValue = 200;
-boolean isFullyColored = true;
-
-// I2C configuration
+bool isFullyColored = true;
 
 #define SDA_1 22
 #define SCL_1 23
@@ -85,16 +55,11 @@ boolean isFullyColored = true;
 TwoWire I2C_sensors = TwoWire(0);
 TwoWire I2C_MCU = TwoWire(1);
 
-// ADC configuration
-#define AmountOfSensors 2 // amount of ADC boards that will be activated. Addresses are counted upwards from 0x48 to 0x4b so its not possible to have 0x48 and 0x4a without 0x49.
-// TODO: Change to 2 ADC array?
-ADS1115 ADC[4] = {ADS1115(0x48, &I2C_sensors), ADS1115(0x49, &I2C_sensors), ADS1115(0x4a, &I2C_sensors), ADS1115(0x4b, &I2C_sensors)};
+#define AmountOfSensors 2
+ADS1115 ADC[AmountOfSensors] = {ADS1115(0x48, &I2C_sensors), ADS1115(0x49, &I2C_sensors)};
 
 float multiplier;
 float ADCValues[AmountOfSensors];
-
-// MCU configuration
-#define AmountOfMcu 2
 
 uint8_t status;
 enum status_types_t
@@ -103,102 +68,74 @@ enum status_types_t
     IDLE
 };
 
-// shift all elements upto the n-th position 1 position to the right
-void shiftToRight(int a[], int n)
+void readTrigger(int ADCNumber)
 {
-    for (int i = n; i > 0; i--)
+    int triggerThreshold = 5;
+    int triggerHysterisis = 1;
+
+    triggerValue = abs(ADC[ADCNumber].readADC_Differential_0_1() * multiplier);
+    ADCValues[ADCNumber] = triggerValue;
+
+    if (triggerValue > triggerThreshold && !triggerFlag)
     {
-        a[i] = a[i - 1];
+        resetIdleTimer();
+        trig[ADCNumber][0] = 1;
+        Serial.println(triggerValue);
+        triggerFlag = true;
     }
-
-    a[0] = 0;
-}
-
-// function that moves all elements in a array to the right by 1, and adds a 0 at the start
-void shiftToRightOptimized(int a[])
-{
-    memmove(a + 1, a, sizeof(a) - sizeof(a[0]));
-    a[0] = 0;
-}
-
-// convert all HSV values to RGB values
-void hsv2rgb()
-{
-    for (int j = 0; j < NUM_SYS - 1; j++)
+    else if (triggerValue < triggerHysterisis && triggerFlag)
     {
-        for (int i = 0; i < BEAM_NUM_LEDS; i++)
-        {
-            beamLedsRGB[j][i] = beamLedsHSV[j][i];
-        }
-
-        for (int i = 0; i < DRUM_NUM_LEDS; i++)
-        {
-            drumLedsRGB[j][i] = drumLedsHSV[j][i];
-        }
+        triggerFlag = false;
     }
 }
 
-int brightness(int trigger) // TODO: Make sure this changes the brightness accordingly
+void updateBeamAnimation()
 {
-    if (trigger < 300)
+    for (int i = 0; i < NUM_SYS; i++)
     {
-        return 50;
-    }
-    else if (trigger >= 300 && trigger < 700)
-    {
-        return 125;
-    }
-    return 200;
-}
-
-void beamAnimationRainbowComets(int system)
-{
-    shiftToRightOptimized(trig[system]);
-
-    for (int i = 0; i < BEAM_NUM_LEDS; i++)
-    {
-        if (trig[system][i] == 1)
+        shiftToRight(trig[i]);
+        for (int j = 0; j < BEAM_NUM_LEDS; j++)
         {
-            beamLedsHSV[system][i].v = 200;
-            beamLedsHSV[system][i].h += 40;
-            beamLedsHSV[system][i].s = 0;
-        }
-        else
-        {
-            beamLedsHSV[system][i].v = max(int(beamLedsHSV[system][i].v - random(2) * 20), 0);
-            beamLedsHSV[system][i].s = min(beamLedsHSV[system][i].s + 50, 255);
+            if (trig[i][j] == 1)
+            {
+                beamLedsHSV[i][j].v = 200;
+                beamLedsHSV[i][j].h += 40;
+                beamLedsHSV[i][j].s = 0;
+            }
+            else
+            {
+                beamLedsHSV[i][j].v = max(int(beamLedsHSV[i][j].v - random(2) * 20), 0);
+                beamLedsHSV[i][j].s = min(beamLedsHSV[i][j].s + 50, 255);
+            }
         }
     }
 }
 
-void drumAnimation(int system)
+void updateDrumAnimation()
 {
-    // if drum hit, fire up all leds
-    for (int i = 0; i < DRUM_NUM_LEDS; i++)
+    for (int i = 0; i < NUM_SYS; i++)
     {
-        if (trig[system][1] == 1)
+        for (int j = 0; j < DRUM_NUM_LEDS; j++)
         {
-            // drumLedsHSV[i].v = brightness(triggerValue);
-            drumLedsHSV[system][i].v = 200;
-            drumLedsHSV[system][i].h += 40;
-            drumLedsHSV[system][i].s = 0;
-        }
-        else
-        {
-            // decrease all leds brightness
-            int release = 40;
-
-            drumLedsHSV[system][i].v = max(int(drumLedsHSV[system][i].v - release), 0);
-            drumLedsHSV[system][i].s = min(drumLedsHSV[system][i].s + 50, 255);
+            if (trig[i][1] == 1)
+            {
+                drumLedsHSV[i][j].v = 200;
+                drumLedsHSV[i][j].h += 40;
+                drumLedsHSV[i][j].s = 0;
+            }
+            else
+            {
+                int release = 40;
+                drumLedsHSV[i][j].v = max(int(drumLedsHSV[i][j].v - release), 0);
+                drumLedsHSV[i][j].s = min(drumLedsHSV[i][j].s + 50, 255);
+            }
         }
     }
 }
 
 void drumIdleAnimation()
 {
-
-    // for all systems, update the leds
-    for (int system = 0; system < NUM_SYS - 1; system++)
+    for (int system = 0; system < NUM_SYS; system++)
     {
         // Give led a random color
         drumLedsHSV[system][ledPosDrum].v = idleValue;
@@ -210,14 +147,12 @@ void drumIdleAnimation()
         {
             ledPosDrum++;
         }
-        // Turn LEDs off
         else if (isFullyColored)
         {
             ledPosDrum = 0;
             idleValue = 0;
             isFullyColored = false;
         }
-        // Turn LEDs on
         else if (!isFullyColored)
         {
             ledPosDrum = 0;
@@ -228,27 +163,8 @@ void drumIdleAnimation()
     }
 }
 
-void updateBeamAnimation()
-{
-    // for all systems update the beam animation
-    for (int i = 0; i < NUM_SYS - 1; i++)
-    {
-        beamAnimationRainbowComets(i);
-    }
-}
-
-void updateDrumAnimation()
-{
-    // for all systems update the drum animation
-    for (int i = 0; i < NUM_SYS - 1; i++)
-    {
-        drumAnimation(i);
-    }
-}
-
 void checkForIdle()
 {
-    // if idle timer is greater than idleThreshold, set status to IDLE
     if (millis() - idleTimer > idleThreshold)
     {
         status = IDLE;
@@ -261,100 +177,43 @@ void resetIdleTimer()
     status = ACTIVE;
 }
 
-float readAdc(int ADCNumber)
+void hsv2rgb()
 {
-    return abs(ADC[ADCNumber].readADC_Differential_0_1() * multiplier);
-}
-
-// int changeModeOtherMcuI2c(int mode)
-// {
-//     for (uint8_t i = 1; i < AmountOfMcu; i++)
-//     {
-//         Wire.beginTransmission(i);
-//         Wire.write(mode);
-//         Wire.endTransmission();
-//     }
-// }
-
-void readTrigger(int ADCNumber)
-{
-    // Define trigger value boundaries
-    int triggerThreshold = 5;
-    int triggerHysterisis = 1;
-
-    // read the state of the pushbutton value:
-    triggerValue = readAdc(ADCNumber);
-    ADCValues[ADCNumber] = triggerValue;
-
-    // check if triggerValue is greater than triggerThreshold and triggerFlag is false.
-    if (triggerValue > triggerThreshold && triggerFlag == false)
+    for (int i = 0; i < NUM_SYS; i++)
     {
-        // reset idle timer
-        resetIdleTimer();
-
-        // Set first element of the trigger array to 1 for all systems. This will trigger the animation.
-        // for (int i = 0; i < NUM_SYS; i++)
-        // {
-        //     trig[i][0] = 1;
-        // }
-
-        // Trigger the system linked to the correct ESP
-        trig[ADCNumber][0] = 1;
-        Serial.println(triggerValue);
-
-        // Set the flag to true, so drum can only retrigger after being released.
-        triggerFlag = true;
-
-        // turn on onboard led
-        // digitalWrite(ONBOARD_LED_PIN, HIGH);
-    }
-    // check if triggerValue has dipped below triggerHysterisis and triggerFlag is true.
-    else if (triggerValue < triggerHysterisis && triggerFlag == true)
-    {
-        triggerFlag = false;
-        // digitalWrite(ONBOARD_LED_PIN, LOW);
+        for (int j = 0; j < BEAM_NUM_LEDS; j++)
+        {
+            beamLedsRGB[i][j] = beamLedsHSV[i][j];
+        }
+        for (int j = 0; j < DRUM_NUM_LEDS; j++)
+        {
+            drumLedsRGB[i][j] = drumLedsHSV[i][j];
+        }
     }
 }
 
-// -- MAIN LOOP --
+void shiftToRight(int a[])
+{
+    memmove(a + 1, a, sizeof(a) - sizeof(a[0]));
+    a[0] = 0;
+}
 
 void setup()
 {
     delay(3000);
 
-    // tell FastLED about the LED beam configuration
+    FastLED.addLeds<LED_TYPE, BEAM_1_1, COLOR_ORDER>(beamLedsRGB[0], 0, 180).setCorrection(TypicalLEDStrip);
+    // Add configurations for other beam LEDs here.
 
-    // Beam 1 strips
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_1, BEAM_COLOR_ORDER>(beamLedsRGB[0], 0, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_2, BEAM_COLOR_ORDER>(beamLedsRGB[0], 180, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_3, BEAM_COLOR_ORDER>(beamLedsRGB[0], 360, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_1_4, BEAM_COLOR_ORDER>(beamLedsRGB[0], 540, 180).setCorrection(TypicalLEDStrip);
-
-    // Beam 2 strips)
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_1, BEAM_COLOR_ORDER>(beamLedsRGB[1], 0, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_2, BEAM_COLOR_ORDER>(beamLedsRGB[1], 180, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_3, BEAM_COLOR_ORDER>(beamLedsRGB[1], 360, 180).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<BEAM_LED_TYPE, BEAM_2_4, BEAM_COLOR_ORDER>(beamLedsRGB[1], 540, 180).setCorrection(TypicalLEDStrip);
-
-    // set master BEAM_BRIGHTNESS control
     FastLED.setBrightness(BEAM_BRIGHTNESS);
 
-    // tell FastLED about the LED DRUM configuration
-    FastLED.addLeds<DRUM_LED_TYPE, DRUM_1, DRUM_COLOR_ORDER>(drumLedsRGB[0], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<DRUM_LED_TYPE, DRUM_2, DRUM_COLOR_ORDER>(drumLedsRGB[1], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<LED_TYPE, DRUM_1, COLOR_ORDER>(drumLedsRGB[0], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    // Add configurations for other drum LEDs here.
 
-    // set master DRUM_BRIGHTNESS control
     FastLED.setBrightness(DRUM_BRIGHTNESS);
 
-    // initialize the onboard LED pin as an output:
-    // pinMode(ONBOARD_LED_PIN, OUTPUT);
-
-    // initialize serial communication at 9600 bits per second:
     Serial.begin(9600);
-
-    // set idleTimer to current time
     idleTimer = millis();
-
     multiplier = 0.1875F;
     I2C_sensors.begin(SDA_1, SCL_1, I2C_FREQ);
     I2C_MCU.begin(SDA_2, SCL_2, I2C_FREQ);
@@ -372,24 +231,11 @@ void setup()
 
 void loop()
 {
-    Serial.printf("start: %d\n", millis());
     for (int i = 0; i < AmountOfSensors; i++)
     {
+        // Read trigger values and perform actions.
         readTrigger(i);
     }
-
-    for (int i = 0; i < AmountOfSensors; i++)
-    {
-        if (i + 1 != AmountOfSensors)
-        {
-            // Serial.printf("%f ", ADCValues[i]);
-        }
-        else
-        {
-            // Serial.printf("%f", ADCValues[i]);
-        }
-    }
-    Serial.printf("eind: %d\n", millis());
 
     switch (status)
     {
@@ -406,5 +252,4 @@ void loop()
     hsv2rgb();
 
     FastLED.show();
-    // FastLED.delay(1000 / FRAMES_PER_SECOND);
 }
