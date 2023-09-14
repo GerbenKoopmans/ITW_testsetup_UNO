@@ -147,7 +147,7 @@ int brightness(int trigger) // TODO: Make sure this changes the brightness accor
 void beamAnimationRainbowComets(int system)
 {
     // shift all beams in the system to the right
-    for (int i = 0; i < NUM_SYS; i++) // Q: Wat doet dit? Is dit niet dubbelop met de updateBeamAnimation functie? (Het checken van alle systemen)
+    for (int i = 0; i < NUM_SYS; i++)
     {
         shiftToRight(trig[system], BEAM_NUM_LEDS);
     }
@@ -168,24 +168,19 @@ void beamAnimationRainbowComets(int system)
 void simpleBeamAnimation(int system)
 {
     // if drum hit, fire up all leds
-    if (trig[system][1] == 1)
+    if (trig[system][0] == 1)
     {
-        for (int i = 0; i < BEAM_NUM_LEDS; i += 20)
+        Serial.println("beam on");
+        for (int i = 0; i < BEAM_NUM_LEDS; i++)
         {
-            // drumLedsHSV[i].v = brightness(triggerValue);
             beamLedsHSV[system][i].v = 200;
-            beamLedsHSV[system][i].h += 40;
-            beamLedsHSV[system][i].s = 0;
+            beamLedsHSV[system][i].h = 50;
+            beamLedsHSV[system][i].s = 50;
+            //      leds2[x][i] = CRGB::Red;
+            FastLED.show();
+            //      leds2[x][i] = CRGB::Black;
+            delay(10);
         }
-    }
-
-    // decrease all leds brightness
-    for (int i = 0; i < BEAM_NUM_LEDS; i += 20)
-    {
-        int release = 40;
-
-        beamLedsHSV[system][i].v = max(int(beamLedsHSV[system][i].v - release), 0);
-        beamLedsHSV[system][i].s = min(beamLedsHSV[system][i].s + 50, 255);
     }
 }
 
@@ -299,8 +294,8 @@ float readAdc(int ADCNumber)
 void readTrigger(int ADCNumber)
 {
     // Define trigger value boundaries
-    int triggerThreshold = 100;
-    int triggerHysterisis = 50;
+    int triggerThreshold = 15;
+    int triggerHysterisis = 1;
 
     // read the state of the pushbutton value:
     triggerValue = readAdc(ADCNumber);
@@ -313,10 +308,14 @@ void readTrigger(int ADCNumber)
         resetIdleTimer();
 
         // Set first element of the trigger array to 1 for all systems. This will trigger the animation.
-        for (int i = 0; i < NUM_SYS; i++)
-        {
-            trig[i][0] = 1;
-        }
+        // for (int i = 0; i < NUM_SYS; i++)
+        // {
+        //     trig[i][0] = 1;
+        // }
+
+        // Trigger the system linked to the correct ESP
+        trig[ADCNumber][0] = 1;
+        Serial.println(triggerValue);
 
         // Set the flag to true, so drum can only retrigger after being released.
         triggerFlag = true;
@@ -397,11 +396,11 @@ void loop()
     {
         if (i + 1 != AmountOfSensors)
         {
-            Serial.printf("%f ", ADCValues[i]);
+            // Serial.printf("%f ", ADCValues[i]);
         }
         else
         {
-            Serial.printf("%f", ADCValues[i]);
+            // Serial.printf("%f", ADCValues[i]);
         }
     }
 
