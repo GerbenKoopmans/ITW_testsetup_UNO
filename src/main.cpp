@@ -114,6 +114,13 @@ void shiftToRight(int a[], int n)
     a[0] = 0;
 }
 
+// function that moves all elements in a array to the right by 1, and adds a 0 at the start
+void shiftToRightOptimized(int a[])
+{
+    memmove(a + 1, a, sizeof(a) - sizeof(a[0]));
+    a[0] = 0;
+}
+
 // convert all HSV values to RGB values
 void hsv2rgb()
 {
@@ -146,7 +153,7 @@ int brightness(int trigger) // TODO: Make sure this changes the brightness accor
 
 void beamAnimationRainbowComets(int system)
 {
-    shiftToRight(trig[system], BEAM_NUM_LEDS);
+    shiftToRightOptimized(trig[system]);
 
     for (int i = 0; i < BEAM_NUM_LEDS; i++)
     {
