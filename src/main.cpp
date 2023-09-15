@@ -27,8 +27,8 @@ FASTLED_USING_NAMESPACE
 #define BEAM_2_4 25
 
 // LED drum options
-#define DRUM_1 2
-#define DRUM_2 4
+#define DRUM_1 4
+#define DRUM_2 2
 
 #define DRUM_LED_TYPE WS2812B
 #define DRUM_COLOR_ORDER GRB
@@ -257,20 +257,10 @@ float readAdc(int ADCNumber)
     return abs(ADC[ADCNumber].readADC_Differential_0_1() * multiplier);
 }
 
-// int changeModeOtherMcuI2c(int mode)
-// {
-//     for (uint8_t i = 1; i < AmountOfMcu; i++)
-//     {
-//         Wire.beginTransmission(i);
-//         Wire.write(mode);
-//         Wire.endTransmission();
-//     }
-// }
-
 void readTrigger(int ADCNumber)
 {
     // Define trigger value boundaries
-    int triggerThreshold = 5;
+    int triggerThreshold = 10;
     int triggerHysterisis = 1;
 
     // read the state of the pushbutton value:
@@ -331,8 +321,8 @@ void setup()
     FastLED.setBrightness(BEAM_BRIGHTNESS);
 
     // tell FastLED about the LED DRUM configuration
-    FastLED.addLeds<DRUM_LED_TYPE, DRUM_1, DRUM_COLOR_ORDER>(drumLedsRGB[0], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<DRUM_LED_TYPE, DRUM_2, DRUM_COLOR_ORDER>(drumLedsRGB[1], DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<DRUM_LED_TYPE, DRUM_2, DRUM_COLOR_ORDER>(drumLedsRGB[0], 0, DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<DRUM_LED_TYPE, DRUM_1, DRUM_COLOR_ORDER>(drumLedsRGB[1], 0, DRUM_NUM_LEDS).setCorrection(TypicalLEDStrip);
 
     // set master DRUM_BRIGHTNESS control
     FastLED.setBrightness(DRUM_BRIGHTNESS);
@@ -363,7 +353,7 @@ void setup()
 
 void loop()
 {
-    Serial.printf("start: %d\n", millis());
+    // Serial.printf("start: %d\n", millis());
     for (int i = 0; i < AmountOfSensors; i++)
     {
         readTrigger(i);
@@ -380,7 +370,7 @@ void loop()
             // Serial.printf("%f", ADCValues[i]);
         }
     }
-    Serial.printf("eind: %d\n", millis());
+    // Serial.printf("eind: %d\n", millis());
 
     switch (status)
     {
